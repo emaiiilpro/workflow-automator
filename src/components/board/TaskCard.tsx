@@ -145,7 +145,7 @@ export function TaskCard({
             snapshot.isDragging ? 'rotate-1 shadow-lg ring-2 ring-teal-400/40' : ''
           }`}
           onClick={() => {
-            if (task.column === 'in_progress' && task.assigneeIds.length > 1) {
+            if (task.column === 'in_progress') {
               setExpanded((p) => !p)
             }
           }}
@@ -247,9 +247,18 @@ export function TaskCard({
                       onClick={(e) => e.stopPropagation()}
                     />
                     {currentReport?.attachments?.length ? (
-                      <p className="mt-1 text-[11px] text-emerald-700">
-                        {currentReport.attachments.length} файл(ов) прикреплено
-                      </p>
+                      <div className="mt-2 rounded-md border border-emerald-200 bg-emerald-50 p-2">
+                        <p className="text-[11px] font-medium text-emerald-700">
+                          Прикреплено: {currentReport.attachments.length}
+                        </p>
+                        <ul className="mt-1 space-y-1">
+                          {currentReport.attachments.map((f) => (
+                            <li key={f.id} className="truncate text-[11px] text-emerald-800">
+                              • {f.name}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     ) : null}
                   </div>
 
