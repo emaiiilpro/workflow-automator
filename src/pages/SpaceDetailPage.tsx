@@ -113,7 +113,7 @@ export function SpaceDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(rgba(248,250,252,0.9),rgba(248,250,252,0.9)),url('/workflow-bg.png')] bg-cover bg-center bg-fixed">
+    <div className="min-h-screen bg-[linear-gradient(rgba(248,250,252,0.72),rgba(248,250,252,0.72)),url('/workflow-bg.png')] bg-cover bg-center bg-fixed">
       <header className="border-b border-white/60 bg-white/80 backdrop-blur">
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-4 px-4 py-4">
           <div className="flex flex-wrap items-center gap-3">
