@@ -90,7 +90,7 @@ export function BoardPage() {
     const destCol = destination.droppableId as TaskColumn
 
     if (sourceCol !== destCol && !canMoveColumn(sourceCol, destCol)) {
-      toast.error('Можно переносить задачи только слева направо')
+      toast.error('Нельзя перенести задачу в выбранную колонку')
       return
     }
 

@@ -11,7 +11,7 @@ export function columnIndex(column: TaskColumn): number {
   return KANBAN_COLUMNS.findIndex((c) => c.id === column)
 }
 
-/** Разрешён только переход «вправо» по колонкам (без возврата назад) */
+/** Разрешены переносы в обе стороны между разными колонками */
 export function canMoveColumn(from: TaskColumn, to: TaskColumn): boolean {
-  return columnIndex(to) > columnIndex(from)
+  return from !== to
 }
