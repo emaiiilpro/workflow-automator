@@ -1,0 +1,86 @@
+import { createSlice, type PayloadAction } from '@reduxjs/toolkit'
+import type { Task, TaskAttachment, TaskColumn } from '@/types'
+
+const tasksSlice = createSlice({
+  name: 'tasks',
+  initialState: [] as Task[],
+  reducers: {
+    addTask(state, action: PayloadAction<Task>) {
+      state.push(action.payload)
+    },
+    updateTask(
+      state,
+      action: PayloadAction<{
+        taskId: string
+        patch: Partial<
+          Pick<
+            Task,
+            | 'description'
+            | 'deadline'
+            | 'priority'
+            | 'assigneeIds'
+            | 'column'
+            | 'order'
+            | 'reportComment'
+            | 'reportAttachments'
+          >
+        >
+      }>,
+    ) {
+      const t = state.find((x) => x.id === action.payload.taskId)
+      if (!t) return
+      Object.assign(t, action.payload.patch)
+    },
+    setTaskColumn(
+      state,
+      action: PayloadAction<{ taskId: string; column: TaskColumn; order: number }>,
+    ) {
+      const t = state.find((x) => x.id === action.payload.taskId)
+      if (!t) return
+      t.column = action.payload.column
+      t.order = action.payload.order
+    },
+    /** Перестановка порядка внутри колонки */
+    reorderInColumn(
+      state,
+      action: PayloadAction<{ boardId: string; column: TaskColumn; orderedIds: string[] }>,
+    ) {
+      const { boardId, column, orderedIds } = action.payload
+      orderedIds.forEach((id, index) => {
+        const t = state.find((x) => x.id === id && x.boardId === boardId && x.column === column)
+        if (t) t.order = index
+      })
+    },
+    appendReportAttachment(
+      state,
+      action: PayloadAction<{ taskId: string; file: TaskAttachment }>,
+    ) {
+      const t = state.find((x) => x.id === action.payload.taskId)
+      if (!t) return
+      if (!t.reportAttachments) t.reportAttachments = []
+      t.reportAttachments.push(action.payload.file)
+    },
+    removeTask(state, action: PayloadAction<string>) {
+      return state.filter((t) => t.id !== action.payload)
+    },
+    /** Удаление всех задач доски (при удалении доски) */
+    removeTasksByBoard(state, action: PayloadAction<string>) {
+      return state.filter((t) => t.boardId !== action.payload)
+    },
+    replaceTasks(_state, action: PayloadAction<Task[]>) {
+      return action.payload
+    },
+  },
+})
+
+export const {
+  addTask,
+  updateTask,
+  setTaskColumn,
+  reorderInColumn,
+  appendReportAttachment,
+  removeTask,
+  removeTasksByBoard,
+  replaceTasks,
+} = tasksSlice.actions
+export default tasksSlice.reducer
