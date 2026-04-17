@@ -74,12 +74,13 @@ export function TaskCard({
         <div
           ref={provided.innerRef}
           {...provided.draggableProps}
+          {...provided.dragHandleProps}
           className={`group rounded-xl border border-slate-200/80 bg-white p-3 shadow-card transition hover:shadow-card-hover ${
             snapshot.isDragging ? 'rotate-1 shadow-lg ring-2 ring-teal-400/40' : ''
           }`}
         >
           <div className="flex gap-2">
-            <div {...provided.dragHandleProps} className="mt-0.5 cursor-grab text-slate-300 hover:text-slate-500">
+            <div className="mt-0.5 cursor-grab text-slate-300 hover:text-slate-500">
               <GripVertical className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
