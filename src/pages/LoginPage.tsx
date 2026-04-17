@@ -8,6 +8,7 @@ import { loginSuccess } from '@/store/slices/authSlice'
 import { addUser } from '@/store/slices/usersSlice'
 import type { Role } from '@/types'
 import { useAuth } from '@/hooks/useAuth'
+import { clearPersistedState } from '@/store/localStorage'
 
 export function LoginPage() {
   const navigate = useNavigate()
@@ -23,8 +24,10 @@ export function LoginPage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
+    const pwd = password.trim()
     const u = users.find(
-      (x) => x.email.toLowerCase() === email.trim().toLowerCase() && x.password === password,
+      (x) =>
+        x.email.toLowerCase() === email.trim().toLowerCase() && x.password === pwd,
     )
     if (!u) {
       toast.error('Неверный email или пароль')
@@ -51,7 +54,7 @@ export function LoginPage() {
         id,
         email: email.trim().toLowerCase(),
         name: name.trim(),
-        password,
+        password: password.trim(),
         role,
       }),
     )
@@ -138,6 +141,7 @@ export function LoginPage() {
             <input
               required
               type="password"
+              autoComplete="current-password"
               className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -154,6 +158,16 @@ export function LoginPage() {
         <p className="mt-6 text-center text-xs text-slate-500">
           Демо: admin@demo.local / admin · user@demo.local / user
         </p>
+        <button
+          type="button"
+          className="mt-3 w-full text-center text-xs text-teal-700 underline decoration-teal-400/60 hover:text-teal-900"
+          onClick={() => {
+            clearPersistedState()
+            window.location.reload()
+          }}
+        >
+          Не получается войти? Сбросить локальные данные и вернуть демо
+        </button>
       </div>
     </div>
   )

@@ -2,11 +2,11 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { v4 as uuid } from 'uuid'
 import toast from 'react-hot-toast'
-import { ArrowLeft, KanbanSquare, Trash2, UserPlus } from 'lucide-react'
+import { ArrowLeft, KanbanSquare, Plus, Trash2, UserPlus } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { useAuth } from '@/hooks/useAuth'
 import { addBoard, removeBoard } from '@/store/slices/boardsSlice'
-import { addMemberToSpace, removeSpace } from '@/store/slices/spacesSlice'
+import { addMemberToSpace, addSpace, removeSpace } from '@/store/slices/spacesSlice'
 import { addUser } from '@/store/slices/usersSlice'
 import { removeTasksByBoard } from '@/store/slices/tasksSlice'
 
@@ -22,6 +22,7 @@ export function SpaceDetailPage() {
   const [boardName, setBoardName] = useState('')
   const [memberEmail, setMemberEmail] = useState('')
   const [memberName, setMemberName] = useState('')
+  const [newSpaceName, setNewSpaceName] = useState('')
 
   const space = spaces.find((s) => s.id === spaceId)
 
@@ -39,6 +40,7 @@ export function SpaceDetailPage() {
   }
 
   const spaceBoards = boards.filter((b) => b.spaceId === space.id)
+  const visibleSpaces = spaces.filter((s) => isAdmin || s.memberIds.includes(user.id))
 
   const addBoardHandler = (e: React.FormEvent) => {
     e.preventDefault()
@@ -56,6 +58,42 @@ export function SpaceDetailPage() {
     )
     setBoardName('')
     toast.success('Доска создана')
+  }
+
+  const quickCreateBoardInSpace = (targetSpaceId: string) => {
+    if (!isAdmin) return
+    const boardTitle = prompt('Название новой доски')
+    if (!boardTitle || !boardTitle.trim()) return
+    const boardId = uuid()
+    dispatch(
+      addBoard({
+        id: boardId,
+        spaceId: targetSpaceId,
+        name: boardTitle.trim(),
+      }),
+    )
+    toast.success('Доска создана')
+    navigate(`/spaces/${targetSpaceId}/board/${boardId}`)
+  }
+
+  const createSpaceHandler = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!isAdmin) return
+    if (!newSpaceName.trim()) {
+      toast.error('Введите название пространства')
+      return
+    }
+    const id = uuid()
+    dispatch(
+      addSpace({
+        id,
+        name: newSpaceName.trim(),
+        memberIds: [user.id],
+      }),
+    )
+    setNewSpaceName('')
+    toast.success('Пространство создано')
+    navigate(`/spaces/${id}`)
   }
 
   const deleteBoard = (id: string) => {
@@ -139,7 +177,7 @@ export function SpaceDetailPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl space-y-10 px-4 py-8">
+      <main className="mx-auto max-w-6xl space-y-10 px-4 py-8">
         {isAdmin && (
           <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
             <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
@@ -184,64 +222,125 @@ export function SpaceDetailPage() {
           </section>
         )}
 
-        <section>
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-            <h2 className="text-lg font-semibold text-slate-900">Доски</h2>
+        <section className="grid gap-6 lg:grid-cols-[280px_1fr]">
+          <aside className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card lg:sticky lg:top-4 lg:h-fit">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+              Пространства
+            </h2>
+
             {isAdmin && (
-              <form onSubmit={addBoardHandler} className="flex flex-wrap gap-2">
+              <form onSubmit={createSpaceHandler} className="mt-3 space-y-2">
                 <input
-                  placeholder="Название доски"
-                  className="min-w-[200px] rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                  value={boardName}
-                  onChange={(e) => setBoardName(e.target.value)}
+                  placeholder="Новое пространство"
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                  value={newSpaceName}
+                  onChange={(e) => setNewSpaceName(e.target.value)}
                 />
                 <button
                   type="submit"
-                  className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                  className="w-full rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700"
                 >
-                  Создать доску
+                  Создать пространство
                 </button>
               </form>
             )}
-          </div>
 
-          <ul className="grid gap-4 sm:grid-cols-2">
-            {spaceBoards.map((b) => (
-              <li
-                key={b.id}
-                className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-card"
-              >
-                <div className="flex items-start gap-3">
-                  <KanbanSquare className="mt-0.5 h-6 w-6 text-blue-600" />
-                  <div>
-                    <h3 className="font-semibold text-slate-900">{b.name}</h3>
-                    <Link
-                      to={`/spaces/${space.id}/board/${b.id}`}
-                      className="mt-2 inline-flex text-sm font-medium text-teal-700 hover:underline"
-                    >
-                      Открыть Kanban →
-                    </Link>
-                  </div>
-                </div>
-                {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => deleteBoard(b.id)}
-                    className="mt-4 self-end text-xs text-red-600 hover:underline"
+            <ul className="mt-3 space-y-2">
+              {visibleSpaces.map((s) => (
+                <li key={s.id}>
+                  <div
+                    className={`flex items-center gap-1 rounded-xl px-2 py-1 transition ${
+                      s.id === space.id
+                        ? 'bg-blue-50 ring-1 ring-blue-200'
+                        : 'hover:bg-slate-50'
+                    }`}
                   >
-                    Удалить доску
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
+                    <Link
+                      to={`/spaces/${s.id}`}
+                      className={`min-w-0 flex-1 truncate rounded-lg px-2 py-1 text-sm ${
+                        s.id === space.id
+                          ? 'font-semibold text-blue-800'
+                          : 'text-slate-700'
+                      }`}
+                    >
+                      {s.name}
+                    </Link>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => quickCreateBoardInSpace(s.id)}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:bg-white hover:text-teal-700"
+                        title="Быстро создать доску"
+                        aria-label={`Создать доску в пространстве ${s.name}`}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </aside>
 
-          {spaceBoards.length === 0 && (
-            <p className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-slate-600">
-              Досок пока нет.
-              {isAdmin && ' Создайте первую доску.'}
-            </p>
-          )}
+          <div>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
+              <h2 className="text-lg font-semibold text-slate-900">Доски</h2>
+              {isAdmin && (
+                <form onSubmit={addBoardHandler} className="flex flex-wrap gap-2">
+                  <input
+                    placeholder="Название доски"
+                    className="min-w-[200px] rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                    value={boardName}
+                    onChange={(e) => setBoardName(e.target.value)}
+                  />
+                  <button
+                    type="submit"
+                    className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                  >
+                    Создать доску
+                  </button>
+                </form>
+              )}
+            </div>
+
+            <ul className="grid gap-4 sm:grid-cols-2">
+              {spaceBoards.map((b) => (
+                <li
+                  key={b.id}
+                  className="flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-card"
+                >
+                  <div className="flex items-start gap-3">
+                    <KanbanSquare className="mt-0.5 h-6 w-6 text-blue-600" />
+                    <div>
+                      <h3 className="font-semibold text-slate-900">{b.name}</h3>
+                      <Link
+                        to={`/spaces/${space.id}/board/${b.id}`}
+                        className="mt-2 inline-flex text-sm font-medium text-teal-700 hover:underline"
+                      >
+                        Открыть Kanban →
+                      </Link>
+                    </div>
+                  </div>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => deleteBoard(b.id)}
+                      className="mt-4 self-end text-xs text-red-600 hover:underline"
+                    >
+                      Удалить доску
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+
+            {spaceBoards.length === 0 && (
+              <p className="rounded-2xl border border-dashed border-slate-300 p-8 text-center text-slate-600">
+                Досок пока нет.
+                {isAdmin && ' Создайте первую доску.'}
+              </p>
+            )}
+          </div>
         </section>
       </main>
     </div>

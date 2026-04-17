@@ -1,6 +1,7 @@
 import type { RootState } from '@/store/rootReducer'
 
-const STORAGE_KEY = 'workflow-automator-state-v1'
+/** Экспорт для сброса с экрана входа */
+export const STORAGE_KEY = 'workflow-automator-state-v1'
 
 export function loadPersistedState(): Partial<RootState> | undefined {
   try {
