@@ -36,30 +36,52 @@ npm run preview
 
 Также можно зарегистрировать нового пользователя с выбором роли.
 
-## GitHub Pages
+## Репозиторий и деплой (GitHub + Pages)
 
-1. В [vite.config.ts](./vite.config.ts) при необходимости задайте `base` под имя репозитория (по умолчанию для скрипта ниже используется `/workflow-automator/`).
+Репозиторий по умолчанию: **`workflow-automator`**. Сборка для Pages использует `base=/workflow-automator/` (см. `npm run build:gh`).
 
-2. Соберите проект:
+### 1. Вход в GitHub CLI
 
-   ```bash
-   npm run build:gh
-   ```
+Установите [GitHub CLI](https://cli.github.com/) (`winget install GitHub.cli`), затем в каталоге проекта:
 
-3. Включите **GitHub Pages** из ветки `gh-pages` или из **GitHub Actions** (артефакт из `dist/`).
-
-Пример деплоя веткой `gh-pages` с [gh-pages](https://www.npmjs.com/package/gh-pages):
-
-```bash
-npm install -D gh-pages
-npx gh-pages -d dist
+```powershell
+gh auth login
 ```
 
-Для репозитория `https://github.com/<user>/workflow-automator` сайт будет по адресу:
+Либо без интерактива (нужен [Personal Access Token](https://github.com/settings/tokens) с правом **repo**):
 
-`https://<user>.github.io/workflow-automator/`
+```powershell
+$env:GH_TOKEN = "ghp_ВАШ_ТОКЕН"
+$env:GH_TOKEN | gh auth login --with-token -h github.com
+```
 
-Убедитесь, что `npm run build:gh` выставляет `--base=/workflow-automator/` (уже настроено в `package.json`).
+### 2. Создать репозиторий и запушить код
+
+```powershell
+cd d:\Project
+gh repo create workflow-automator --public --source=. --remote=origin --push
+```
+
+Если репозиторий уже создан вручную:
+
+```powershell
+git remote add origin https://github.com/<ваш-логин>/workflow-automator.git
+git push -u origin main
+```
+
+Автоматический вариант: скрипт [scripts/github-publish.ps1](./scripts/github-publish.ps1) (после `gh auth` или `$env:GH_TOKEN`).
+
+### 3. Включить GitHub Pages (один раз)
+
+В репозитории на GitHub: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+
+После пуша в `main` сработает workflow [.github/workflows/deploy-pages.yml](./.github/workflows/deploy-pages.yml): сборка `npm run build:gh`, копия `index.html` в `404.html` для SPA, публикация артефакта.
+
+Сайт будет доступен по адресу:
+
+`https://<ваш-логин>.github.io/workflow-automator/`
+
+Если имя репозитория другое — измените `--base=/ИМЯ_РЕПО/` в `package.json` (`build:gh`) и в workflow при необходимости.
 
 ## Структура
 
