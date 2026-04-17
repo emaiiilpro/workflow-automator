@@ -11,7 +11,8 @@ if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
   Write-Error "Установите GitHub CLI: winget install GitHub.cli"
 }
 
-if (-not (gh auth status 2>$null)) {
+gh auth status *> $null
+if ($LASTEXITCODE -ne 0) {
   if ($env:GH_TOKEN) {
     $env:GH_TOKEN | gh auth login --with-token -h github.com
   } else {
