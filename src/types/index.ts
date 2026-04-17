@@ -4,7 +4,7 @@ export type Role = 'admin' | 'user'
 export type Priority = 'low' | 'medium' | 'high'
 
 /** Колонки Kanban (фиксированный порядок слева направо) */
-export type TaskColumn = 'assigned' | 'in_progress' | 'completed'
+export type TaskColumn = 'assigned' | 'in_progress' | 'completed' | 'archive'
 
 export interface User {
   id: string
@@ -36,6 +36,12 @@ export interface TaskAttachment {
   dataBase64: string
 }
 
+export interface AssigneeReport {
+  comment?: string
+  attachments: TaskAttachment[]
+  completed: boolean
+}
+
 export interface Task {
   id: string
   boardId: string
@@ -49,6 +55,8 @@ export interface Task {
   order: number
   reportComment?: string
   reportAttachments?: TaskAttachment[]
+  /** Отчеты по каждому исполнителю в задаче */
+  assigneeReports?: Record<string, AssigneeReport>
 }
 
 export interface AuthState {

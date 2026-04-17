@@ -5,6 +5,7 @@ export const KANBAN_COLUMNS: { id: TaskColumn; title: string }[] = [
   { id: 'assigned', title: 'Назначенные' },
   { id: 'in_progress', title: 'В работе' },
   { id: 'completed', title: 'Выполненные' },
+  { id: 'archive', title: 'Архив' },
 ]
 
 export function columnIndex(column: TaskColumn): number {

@@ -23,6 +23,7 @@ const tasksSlice = createSlice({
             | 'order'
             | 'reportComment'
             | 'reportAttachments'
+            | 'assigneeReports'
           >
         >
       }>,
@@ -53,12 +54,41 @@ const tasksSlice = createSlice({
     },
     appendReportAttachment(
       state,
-      action: PayloadAction<{ taskId: string; file: TaskAttachment }>,
+      action: PayloadAction<{ taskId: string; userId: string; file: TaskAttachment }>,
     ) {
       const t = state.find((x) => x.id === action.payload.taskId)
       if (!t) return
       if (!t.reportAttachments) t.reportAttachments = []
       t.reportAttachments.push(action.payload.file)
+      if (!t.assigneeReports) t.assigneeReports = {}
+      if (!t.assigneeReports[action.payload.userId]) {
+        t.assigneeReports[action.payload.userId] = { attachments: [], completed: false }
+      }
+      t.assigneeReports[action.payload.userId].attachments.push(action.payload.file)
+    },
+    setAssigneeReportComment(
+      state,
+      action: PayloadAction<{ taskId: string; userId: string; comment: string }>,
+    ) {
+      const t = state.find((x) => x.id === action.payload.taskId)
+      if (!t) return
+      if (!t.assigneeReports) t.assigneeReports = {}
+      if (!t.assigneeReports[action.payload.userId]) {
+        t.assigneeReports[action.payload.userId] = { attachments: [], completed: false }
+      }
+      t.assigneeReports[action.payload.userId].comment = action.payload.comment
+    },
+    setAssigneeCompleted(
+      state,
+      action: PayloadAction<{ taskId: string; userId: string; completed: boolean }>,
+    ) {
+      const t = state.find((x) => x.id === action.payload.taskId)
+      if (!t) return
+      if (!t.assigneeReports) t.assigneeReports = {}
+      if (!t.assigneeReports[action.payload.userId]) {
+        t.assigneeReports[action.payload.userId] = { attachments: [], completed: false }
+      }
+      t.assigneeReports[action.payload.userId].completed = action.payload.completed
     },
     removeTask(state, action: PayloadAction<string>) {
       return state.filter((t) => t.id !== action.payload)
@@ -79,6 +109,8 @@ export const {
   setTaskColumn,
   reorderInColumn,
   appendReportAttachment,
+  setAssigneeReportComment,
+  setAssigneeCompleted,
   removeTask,
   removeTasksByBoard,
   replaceTasks,

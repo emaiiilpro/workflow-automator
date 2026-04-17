@@ -89,6 +89,11 @@ export function BoardPage() {
     const sourceCol = source.droppableId as TaskColumn
     const destCol = destination.droppableId as TaskColumn
 
+    if (sourceCol === 'in_progress') {
+      toast.error('Перенос из «В работе» мышкой отключен')
+      return
+    }
+
     if (sourceCol !== destCol && !canMoveColumn(sourceCol, destCol)) {
       toast.error('Нельзя перенести задачу в выбранную колонку')
       return
@@ -493,7 +498,11 @@ export function BoardPage() {
       )}
 
       {reportTask && (
-        <TaskReportModal task={reportTask} onClose={() => setReportTaskId(null)} />
+        <TaskReportModal
+          task={reportTask}
+          currentUserId={user.id}
+          onClose={() => setReportTaskId(null)}
+        />
       )}
     </div>
   )

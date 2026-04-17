@@ -5,16 +5,18 @@ import { v4 as uuid } from 'uuid'
 import toast from 'react-hot-toast'
 import type { Task } from '@/types'
 import { useAppDispatch } from '@/store/hooks'
-import { appendReportAttachment, updateTask } from '@/store/slices/tasksSlice'
+import { appendReportAttachment, setAssigneeReportComment } from '@/store/slices/tasksSlice'
 
 type Props = {
   task: Task
+  currentUserId: string
   onClose: () => void
 }
 
 /** Модалка отчёта: файлы (base64), комментарий, завершение через перенос в «Выполненные» на доске */
-export function TaskReportModal({ task, onClose }: Props) {
+export function TaskReportModal({ task, currentUserId, onClose }: Props) {
   const dispatch = useAppDispatch()
+  const currentReport = task.assigneeReports?.[currentUserId]
 
   const onDrop = useCallback(
     (accepted: File[]) => {
@@ -26,6 +28,7 @@ export function TaskReportModal({ task, onClose }: Props) {
           dispatch(
             appendReportAttachment({
               taskId: task.id,
+              userId: currentUserId,
               file: {
                 id: uuid(),
                 name: file.name,
@@ -39,7 +42,7 @@ export function TaskReportModal({ task, onClose }: Props) {
         reader.readAsDataURL(file)
       })
     },
-    [dispatch, task.id],
+    [dispatch, task.id, currentUserId],
   )
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -66,10 +69,16 @@ export function TaskReportModal({ task, onClose }: Props) {
         <textarea
           className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
           rows={4}
-          value={task.reportComment ?? ''}
+          value={currentReport?.comment ?? ''}
           placeholder="Что сделано, ссылки, заметки…"
           onChange={(e) =>
-            dispatch(updateTask({ taskId: task.id, patch: { reportComment: e.target.value } }))
+            dispatch(
+              setAssigneeReportComment({
+                taskId: task.id,
+                userId: currentUserId,
+                comment: e.target.value,
+              }),
+            )
           }
         />
 
@@ -88,9 +97,9 @@ export function TaskReportModal({ task, onClose }: Props) {
           Перетащите файлы сюда или нажмите для выбора
         </div>
 
-        {task.reportAttachments && task.reportAttachments.length > 0 && (
+        {currentReport?.attachments && currentReport.attachments.length > 0 && (
           <ul className="mt-3 space-y-2">
-            {task.reportAttachments.map((a) => (
+            {currentReport.attachments.map((a) => (
               <li
                 key={a.id}
                 className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm"
@@ -104,9 +113,7 @@ export function TaskReportModal({ task, onClose }: Props) {
           </ul>
         )}
 
-        <p className="mt-4 text-xs text-slate-500">
-          Чтобы завершить задачу, перетащите карточку в колонку «Выполненные».
-        </p>
+        <p className="mt-4 text-xs text-slate-500">После заполнения отчета отметьте себя в карточке.</p>
       </div>
     </div>
   )
