@@ -25,6 +25,18 @@ npm run build
 npm run preview
 ```
 
+One-command деплой в `main` (коммит + push, без интерактива):
+
+```powershell
+npm run deploy
+```
+
+С сообщением коммита:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\deploy.ps1 -Message "feat: update board ui"
+```
+
 ## Демо-аккаунты
 
 После первого запуска доступны пользователи из сида:
