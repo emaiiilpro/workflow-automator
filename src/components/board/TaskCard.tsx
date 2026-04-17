@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Draggable } from '@hello-pangea/dnd'
-import { Calendar, Check, Flag, GripVertical, Pencil } from 'lucide-react'
+import { Calendar, Check, Flag, GripVertical, Paperclip, Pencil } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import toast from 'react-hot-toast'
@@ -9,8 +9,15 @@ import { priorityBadgeClass, priorityLabel } from '@/utils/priority'
 import { isOverdue } from '@/utils/deadline'
 import { AvatarStack } from '@/components/ui/AvatarStack'
 import { useAppDispatch } from '@/store/hooks'
-import { setAssigneeCompleted, setTaskColumn, updateTask } from '@/store/slices/tasksSlice'
+import {
+  appendReportAttachment,
+  setAssigneeCompleted,
+  setAssigneeReportComment,
+  setTaskColumn,
+  updateTask,
+} from '@/store/slices/tasksSlice'
 import { KANBAN_COLUMNS } from '@/constants/kanban'
+import { v4 as uuid } from 'uuid'
 
 type Props = {
   task: Task
@@ -19,7 +26,6 @@ type Props = {
   currentUserId: string
   /** При поиске/фильтрах отключаем DnD, чтобы индексы совпадали с хранилищем */
   isDragDisabled?: boolean
-  onOpenReport?: () => void
 }
 
 export function TaskCard({
@@ -28,13 +34,13 @@ export function TaskCard({
   assignees,
   currentUserId,
   isDragDisabled,
-  onOpenReport,
 }: Props) {
   const dispatch = useAppDispatch()
   const [editing, setEditing] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const overdue = isOverdue(task.deadline)
   const isAssignee = task.assigneeIds.includes(currentUserId)
+  const currentReport = task.assigneeReports?.[currentUserId]
 
   const handleAccept = () => {
     if (!isAssignee) {
@@ -67,6 +73,29 @@ export function TaskCard({
     const i = order.indexOf(task.priority)
     const next = order[(i + 1) % order.length]
     dispatch(updateTask({ taskId: task.id, patch: { priority: next } }))
+  }
+
+  const onReportFileSelected = (file?: File) => {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result
+      if (typeof result !== 'string') return
+      dispatch(
+        appendReportAttachment({
+          taskId: task.id,
+          userId: currentUserId,
+          file: {
+            id: uuid(),
+            name: file.name,
+            mime: file.type || 'application/octet-stream',
+            dataBase64: result,
+          },
+        }),
+      )
+      toast.success('Файл отчета прикреплен')
+    }
+    reader.readAsDataURL(file)
   }
 
   const toggleAssigneeCompleted = (assigneeId: string, checked: boolean) => {
@@ -126,6 +155,12 @@ export function TaskCard({
               <GripVertical className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
+              {task.descriptionAttachment && (
+                <div className="mb-2 inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-[11px] text-slate-700">
+                  <Paperclip className="h-3 w-3" />
+                  {task.descriptionAttachment.name}
+                </div>
+              )}
               <p className="text-sm font-medium leading-snug text-slate-900">{task.description}</p>
 
               <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -169,18 +204,6 @@ export function TaskCard({
                   >
                     Приоритет
                   </button>
-                  {task.column === 'in_progress' && isAssignee && onOpenReport && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        onOpenReport()
-                      }}
-                      className="rounded-lg bg-teal-600 px-2 py-1 text-xs font-medium text-white shadow hover:bg-teal-700"
-                    >
-                      Отчёт
-                    </button>
-                  )}
                   {task.column === 'assigned' && isAssignee && (
                     <button
                       type="button"
@@ -196,8 +219,87 @@ export function TaskCard({
                 </div>
               </div>
 
-              {task.column === 'in_progress' && task.assigneeIds.length > 1 && expanded && (
+              {task.column === 'in_progress' && expanded && (
                 <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                  <p className="mb-1 text-xs font-medium text-slate-600">Комментарий</p>
+                  <textarea
+                    rows={3}
+                    className="w-full rounded-md border border-slate-200 px-2 py-1 text-xs"
+                    value={currentReport?.comment ?? ''}
+                    onChange={(e) =>
+                      dispatch(
+                        setAssigneeReportComment({
+                          taskId: task.id,
+                          userId: currentUserId,
+                          comment: e.target.value,
+                        }),
+                      )
+                    }
+                    onClick={(e) => e.stopPropagation()}
+                  />
+
+                  <div className="mt-2">
+                    <p className="mb-1 text-xs font-medium text-slate-600">Файл отчета</p>
+                    <input
+                      type="file"
+                      className="w-full text-xs"
+                      onChange={(e) => onReportFileSelected(e.target.files?.[0] ?? undefined)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    {currentReport?.attachments?.length ? (
+                      <p className="mt-1 text-[11px] text-emerald-700">
+                        {currentReport.attachments.length} файл(ов) прикреплено
+                      </p>
+                    ) : null}
+                  </div>
+
+                  {task.checklistConfig?.report && (
+                    <label className="mt-2 flex items-center gap-2 text-xs text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={!!task.checklistState?.report}
+                        onChange={(e) =>
+                          dispatch(
+                            updateTask({
+                              taskId: task.id,
+                              patch: {
+                                checklistState: {
+                                  report: e.target.checked,
+                                  familiarization: !!task.checklistState?.familiarization,
+                                },
+                              },
+                            }),
+                          )
+                        }
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      Рапорт
+                    </label>
+                  )}
+                  {task.checklistConfig?.familiarization && (
+                    <label className="mt-1 flex items-center gap-2 text-xs text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={!!task.checklistState?.familiarization}
+                        onChange={(e) =>
+                          dispatch(
+                            updateTask({
+                              taskId: task.id,
+                              patch: {
+                                checklistState: {
+                                  report: !!task.checklistState?.report,
+                                  familiarization: e.target.checked,
+                                },
+                              },
+                            }),
+                          )
+                        }
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      Лист ознакомления
+                    </label>
+                  )}
+
                   <p className="mb-2 text-xs font-medium text-slate-600">Исполнители и отчеты</p>
                   <ul className="space-y-1">
                     {assignees.map((a) => {

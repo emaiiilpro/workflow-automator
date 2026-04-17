@@ -42,6 +42,11 @@ export interface AssigneeReport {
   completed: boolean
 }
 
+export interface TaskChecklistConfig {
+  report: boolean
+  familiarization: boolean
+}
+
 export interface Task {
   id: string
   boardId: string
@@ -53,6 +58,12 @@ export interface Task {
   assigneeIds: string[]
   /** Порядок внутри колонки для DnD */
   order: number
+  /** Файл, прикрепленный админом при создании в поле описания */
+  descriptionAttachment?: TaskAttachment
+  /** Настраиваемые поля карточки, заданные при создании */
+  checklistConfig?: TaskChecklistConfig
+  /** Состояние чеклиста карточки */
+  checklistState?: TaskChecklistConfig
   reportComment?: string
   reportAttachments?: TaskAttachment[]
   /** Отчеты по каждому исполнителю в задаче */

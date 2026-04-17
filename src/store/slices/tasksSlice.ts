@@ -12,20 +12,7 @@ const tasksSlice = createSlice({
       state,
       action: PayloadAction<{
         taskId: string
-        patch: Partial<
-          Pick<
-            Task,
-            | 'description'
-            | 'deadline'
-            | 'priority'
-            | 'assigneeIds'
-            | 'column'
-            | 'order'
-            | 'reportComment'
-            | 'reportAttachments'
-            | 'assigneeReports'
-          >
-        >
+        patch: Partial<Task>
       }>,
     ) {
       const t = state.find((x) => x.id === action.payload.taskId)

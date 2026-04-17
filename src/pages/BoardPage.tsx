@@ -9,7 +9,6 @@ import { KANBAN_COLUMNS, canMoveColumn } from '@/constants/kanban'
 import type { Priority, Task, TaskColumn, User } from '@/types'
 import { BoardColumn } from '@/components/board/BoardColumn'
 import { CreateTaskModal } from '@/components/board/CreateTaskModal'
-import { TaskReportModal } from '@/components/board/TaskReportModal'
 import { removeTasksByBoard, updateTask, reorderInColumn } from '@/store/slices/tasksSlice'
 import { addBoard, removeBoard } from '@/store/slices/boardsSlice'
 import { addSpace, removeSpace, renameSpace } from '@/store/slices/spacesSlice'
@@ -30,7 +29,6 @@ export function BoardPage() {
   const [filterUserId, setFilterUserId] = useState<string>('')
   const [filterPriority, setFilterPriority] = useState<Priority | ''>('')
   const [createOpen, setCreateOpen] = useState(false)
-  const [reportTaskId, setReportTaskId] = useState<string | null>(null)
   const [isCreateSpaceOpen, setIsCreateSpaceOpen] = useState(false)
   const [newSpaceName, setNewSpaceName] = useState('')
   const [editingSpaceId, setEditingSpaceId] = useState<string | null>(null)
@@ -258,8 +256,6 @@ export function BoardPage() {
     )
   }
 
-  const reportTask = reportTaskId ? tasks.find((t) => t.id === reportTaskId) : undefined
-
   return (
     <div className="min-h-screen bg-[linear-gradient(rgba(248,250,252,0.72),rgba(248,250,252,0.72)),url('/workflow-bg.png')] bg-cover bg-center bg-fixed">
       <header className="border-b border-white/60 bg-white/70 backdrop-blur-md">
@@ -479,7 +475,6 @@ export function BoardPage() {
                     isAdmin={isAdmin}
                     canCreateHere={col.id === 'assigned'}
                     onCreateClick={() => setCreateOpen(true)}
-                    setReportForTaskId={setReportTaskId}
                     isDragDisabled={filtersActive}
                   />
                 ))}
@@ -497,13 +492,6 @@ export function BoardPage() {
         />
       )}
 
-      {reportTask && (
-        <TaskReportModal
-          task={reportTask}
-          currentUserId={user.id}
-          onClose={() => setReportTaskId(null)}
-        />
-      )}
     </div>
   )
 }

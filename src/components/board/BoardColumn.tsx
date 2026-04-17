@@ -12,7 +12,6 @@ type Props = {
   isAdmin: boolean
   canCreateHere: boolean
   onCreateClick?: () => void
-  setReportForTaskId: (id: string | null) => void
   isDragDisabled?: boolean
 }
 
@@ -25,7 +24,6 @@ export function BoardColumn({
   isAdmin,
   canCreateHere,
   onCreateClick,
-  setReportForTaskId,
   isDragDisabled,
 }: Props) {
   return (
@@ -54,9 +52,6 @@ export function BoardColumn({
                 assignees={assigneesOf(task.assigneeIds)}
                 currentUserId={currentUserId}
                 isDragDisabled={isDragDisabled}
-                onOpenReport={
-                  task.column === 'in_progress' ? () => setReportForTaskId(task.id) : undefined
-                }
               />
             ))}
             {provided.placeholder}

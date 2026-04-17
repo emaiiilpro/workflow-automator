@@ -18,6 +18,9 @@ export function CreateTaskModal({ boardId, members, onClose }: Props) {
   const [description, setDescription] = useState('')
   const [deadline, setDeadline] = useState(() => new Date().toISOString().slice(0, 10))
   const [priority, setPriority] = useState<Priority>('medium')
+  const [descriptionFile, setDescriptionFile] = useState<File | null>(null)
+  const [includeReportField, setIncludeReportField] = useState(true)
+  const [includeFamiliarizationField, setIncludeFamiliarizationField] = useState(true)
   const [assigneeIds, setAssigneeIds] = useState<string[]>(() =>
     members[0] ? [members[0].id] : [],
   )
@@ -37,20 +40,52 @@ export function CreateTaskModal({ boardId, members, onClose }: Props) {
       toast.error('Назначьте хотя бы одного участника')
       return
     }
-    dispatch(
-      addTask({
-        id: uuid(),
-        boardId,
-        column: 'assigned',
-        description: description.trim(),
-        deadline,
-        priority,
-        assigneeIds,
-        order: Date.now(),
-      }),
-    )
-    toast.success('Задача создана в «Назначенные»')
-    onClose()
+    const taskId = uuid()
+    const baseTask = {
+      id: taskId,
+      boardId,
+      column: 'assigned' as const,
+      description: description.trim(),
+      deadline,
+      priority,
+      assigneeIds,
+      order: Date.now(),
+      checklistConfig: {
+        report: includeReportField,
+        familiarization: includeFamiliarizationField,
+      },
+      checklistState: {
+        report: false,
+        familiarization: false,
+      },
+    }
+
+    if (!descriptionFile) {
+      dispatch(addTask(baseTask))
+      toast.success('Задача создана в «Назначенные»')
+      onClose()
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const data = reader.result
+      if (typeof data !== 'string') return
+      dispatch(
+        addTask({
+          ...baseTask,
+          descriptionAttachment: {
+            id: uuid(),
+            name: descriptionFile.name,
+            mime: descriptionFile.type || 'application/octet-stream',
+            dataBase64: data,
+          },
+        }),
+      )
+      toast.success('Задача создана в «Назначенные»')
+      onClose()
+    }
+    reader.readAsDataURL(descriptionFile)
   }
 
   return (
@@ -74,6 +109,34 @@ export function CreateTaskModal({ boardId, members, onClose }: Props) {
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
+        <label className="mt-3 block text-sm font-medium text-slate-700">
+          Файл к описанию задачи
+        </label>
+        <input
+          type="file"
+          className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+          onChange={(e) => setDescriptionFile(e.target.files?.[0] ?? null)}
+        />
+
+        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <p className="text-sm font-medium text-slate-700">Чеклист карточки</p>
+          <label className="mt-2 flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={includeReportField}
+              onChange={(e) => setIncludeReportField(e.target.checked)}
+            />
+            Поле «Рапорт»
+          </label>
+          <label className="mt-1 flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={includeFamiliarizationField}
+              onChange={(e) => setIncludeFamiliarizationField(e.target.checked)}
+            />
+            Поле «Лист ознакомления»
+          </label>
+        </div>
 
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <div>
