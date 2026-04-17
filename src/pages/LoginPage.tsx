@@ -68,7 +68,7 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-teal-100 via-white to-blue-100 px-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[linear-gradient(rgba(248,250,252,0.88),rgba(248,250,252,0.88)),url('/workflow-bg.png')] bg-cover bg-center bg-fixed px-4">
       <div className="mb-8 flex items-center gap-3 text-slate-900">
         <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-teal-500 to-blue-600 shadow-lg">
           <ClipboardList className="h-7 w-7 text-white" />

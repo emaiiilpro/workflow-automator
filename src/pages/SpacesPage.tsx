@@ -39,7 +39,7 @@ export function SpacesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-blue-50">
+    <div className="min-h-screen bg-[linear-gradient(rgba(248,250,252,0.9),rgba(248,250,252,0.9)),url('/workflow-bg.png')] bg-cover bg-center bg-fixed">
       <header className="border-b border-white/60 bg-white/80 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-3">

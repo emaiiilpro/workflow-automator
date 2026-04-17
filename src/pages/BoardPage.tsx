@@ -256,7 +256,7 @@ export function BoardPage() {
   const reportTask = reportTaskId ? tasks.find((t) => t.id === reportTaskId) : undefined
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-blue-50">
+    <div className="min-h-screen bg-[linear-gradient(rgba(248,250,252,0.88),rgba(248,250,252,0.88)),url('/workflow-bg.png')] bg-cover bg-center bg-fixed">
       <header className="border-b border-white/60 bg-white/70 backdrop-blur-md">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-4 px-4 py-4">
           <div className="flex flex-wrap items-center gap-3">
