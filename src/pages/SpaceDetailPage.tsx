@@ -2,11 +2,11 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { v4 as uuid } from 'uuid'
 import toast from 'react-hot-toast'
-import { ArrowLeft, KanbanSquare, Plus, Trash2, UserPlus } from 'lucide-react'
+import { ArrowLeft, KanbanSquare, Trash2, UserPlus } from 'lucide-react'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { useAuth } from '@/hooks/useAuth'
 import { addBoard, removeBoard } from '@/store/slices/boardsSlice'
-import { addMemberToSpace, addSpace, removeSpace } from '@/store/slices/spacesSlice'
+import { addMemberToSpace, removeSpace } from '@/store/slices/spacesSlice'
 import { addUser } from '@/store/slices/usersSlice'
 import { removeTasksByBoard } from '@/store/slices/tasksSlice'
 
@@ -22,7 +22,6 @@ export function SpaceDetailPage() {
   const [boardName, setBoardName] = useState('')
   const [memberEmail, setMemberEmail] = useState('')
   const [memberName, setMemberName] = useState('')
-  const [newSpaceName, setNewSpaceName] = useState('')
 
   const space = spaces.find((s) => s.id === spaceId)
 
@@ -40,7 +39,6 @@ export function SpaceDetailPage() {
   }
 
   const spaceBoards = boards.filter((b) => b.spaceId === space.id)
-  const visibleSpaces = spaces.filter((s) => isAdmin || s.memberIds.includes(user.id))
 
   const addBoardHandler = (e: React.FormEvent) => {
     e.preventDefault()
@@ -58,42 +56,6 @@ export function SpaceDetailPage() {
     )
     setBoardName('')
     toast.success('Доска создана')
-  }
-
-  const quickCreateBoardInSpace = (targetSpaceId: string) => {
-    if (!isAdmin) return
-    const boardTitle = prompt('Название новой доски')
-    if (!boardTitle || !boardTitle.trim()) return
-    const boardId = uuid()
-    dispatch(
-      addBoard({
-        id: boardId,
-        spaceId: targetSpaceId,
-        name: boardTitle.trim(),
-      }),
-    )
-    toast.success('Доска создана')
-    navigate(`/spaces/${targetSpaceId}/board/${boardId}`)
-  }
-
-  const createSpaceHandler = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!isAdmin) return
-    if (!newSpaceName.trim()) {
-      toast.error('Введите название пространства')
-      return
-    }
-    const id = uuid()
-    dispatch(
-      addSpace({
-        id,
-        name: newSpaceName.trim(),
-        memberIds: [user.id],
-      }),
-    )
-    setNewSpaceName('')
-    toast.success('Пространство создано')
-    navigate(`/spaces/${id}`)
   }
 
   const deleteBoard = (id: string) => {
@@ -222,67 +184,7 @@ export function SpaceDetailPage() {
           </section>
         )}
 
-        <section className="grid gap-6 lg:grid-cols-[280px_1fr]">
-          <aside className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card lg:sticky lg:top-4 lg:h-fit">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-              Пространства
-            </h2>
-
-            {isAdmin && (
-              <form onSubmit={createSpaceHandler} className="mt-3 space-y-2">
-                <input
-                  placeholder="Новое пространство"
-                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                  value={newSpaceName}
-                  onChange={(e) => setNewSpaceName(e.target.value)}
-                />
-                <button
-                  type="submit"
-                  className="w-full rounded-xl bg-teal-600 px-3 py-2 text-sm font-semibold text-white hover:bg-teal-700"
-                >
-                  Создать пространство
-                </button>
-              </form>
-            )}
-
-            <ul className="mt-3 space-y-2">
-              {visibleSpaces.map((s) => (
-                <li key={s.id}>
-                  <div
-                    className={`flex items-center gap-1 rounded-xl px-2 py-1 transition ${
-                      s.id === space.id
-                        ? 'bg-blue-50 ring-1 ring-blue-200'
-                        : 'hover:bg-slate-50'
-                    }`}
-                  >
-                    <Link
-                      to={`/spaces/${s.id}`}
-                      className={`min-w-0 flex-1 truncate rounded-lg px-2 py-1 text-sm ${
-                        s.id === space.id
-                          ? 'font-semibold text-blue-800'
-                          : 'text-slate-700'
-                      }`}
-                    >
-                      {s.name}
-                    </Link>
-                    {isAdmin && (
-                      <button
-                        type="button"
-                        onClick={() => quickCreateBoardInSpace(s.id)}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:bg-white hover:text-teal-700"
-                        title="Быстро создать доску"
-                        aria-label={`Создать доску в пространстве ${s.name}`}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </aside>
-
-          <div>
+        <section>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
               <h2 className="text-lg font-semibold text-slate-900">Доски</h2>
               {isAdmin && (
@@ -340,7 +242,6 @@ export function SpaceDetailPage() {
                 {isAdmin && ' Создайте первую доску.'}
               </p>
             )}
-          </div>
         </section>
       </main>
     </div>

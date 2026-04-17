@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { DragDropContext, type DropResult } from '@hello-pangea/dnd'
-import { ArrowLeft, LayoutGrid, Search, SlidersHorizontal } from 'lucide-react'
+import { ArrowLeft, LayoutGrid, Plus, Search, SlidersHorizontal, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { useAuth } from '@/hooks/useAuth'
@@ -10,8 +10,9 @@ import type { Priority, Task, TaskColumn, User } from '@/types'
 import { BoardColumn } from '@/components/board/BoardColumn'
 import { CreateTaskModal } from '@/components/board/CreateTaskModal'
 import { TaskReportModal } from '@/components/board/TaskReportModal'
-import { updateTask, reorderInColumn } from '@/store/slices/tasksSlice'
-import { addBoard } from '@/store/slices/boardsSlice'
+import { removeTasksByBoard, updateTask, reorderInColumn } from '@/store/slices/tasksSlice'
+import { addBoard, removeBoard } from '@/store/slices/boardsSlice'
+import { addSpace, removeSpace } from '@/store/slices/spacesSlice'
 import { v4 as uuid } from 'uuid'
 
 export function BoardPage() {
@@ -30,6 +31,8 @@ export function BoardPage() {
   const [filterPriority, setFilterPriority] = useState<Priority | ''>('')
   const [createOpen, setCreateOpen] = useState(false)
   const [reportTaskId, setReportTaskId] = useState<string | null>(null)
+  const [isCreateSpaceOpen, setIsCreateSpaceOpen] = useState(false)
+  const [newSpaceName, setNewSpaceName] = useState('')
 
   const space = spaces.find((x) => x.id === spaceId)
   const board = boards.find((x) => x.id === boardId && x.spaceId === spaceId)
@@ -150,6 +153,59 @@ export function BoardPage() {
     navigate(`/spaces/${targetSpaceId}/board/${newBoardId}`)
   }
 
+  const createSpaceFromSidebar = () => {
+    if (!isAdmin) return
+    if (!newSpaceName.trim() || !user) {
+      toast.error('Введите название пространства')
+      return
+    }
+    const newSpaceId = uuid()
+    const newBoardId = uuid()
+    dispatch(
+      addSpace({
+        id: newSpaceId,
+        name: newSpaceName.trim(),
+        memberIds: [user.id],
+      }),
+    )
+    dispatch(
+      addBoard({
+        id: newBoardId,
+        spaceId: newSpaceId,
+        name: 'Новая доска',
+      }),
+    )
+    setNewSpaceName('')
+    setIsCreateSpaceOpen(false)
+    toast.success('Пространство создано')
+    navigate(`/spaces/${newSpaceId}/board/${newBoardId}`)
+  }
+
+  const deleteSpaceFromSidebar = (targetSpaceId: string) => {
+    if (!isAdmin || !space) return
+    const target = spaces.find((s) => s.id === targetSpaceId)
+    if (!target) return
+    if (!confirm(`Удалить пространство «${target.name}» и все его доски/задачи?`)) return
+
+    const targetBoards = boards.filter((b) => b.spaceId === targetSpaceId)
+    targetBoards.forEach((b) => {
+      dispatch(removeTasksByBoard(b.id))
+      dispatch(removeBoard(b.id))
+    })
+    dispatch(removeSpace(targetSpaceId))
+
+    const remaining = visibleSpaces.filter((s) => s.id !== targetSpaceId)
+    if (remaining.length === 0) {
+      toast.success('Пространство удалено')
+      navigate('/spaces')
+      return
+    }
+
+    // Переход к первому доступному пространству после удаления.
+    openSpaceWithBoard(remaining[0].id)
+    toast.success('Пространство удалено')
+  }
+
   if (!spaceId || !boardId || !space || !board || !user) {
     return (
       <div className="p-8 text-center text-slate-600">
@@ -243,23 +299,85 @@ export function BoardPage() {
       <main className="mx-auto max-w-[1600px] px-4 py-6">
         <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
           <aside className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card lg:sticky lg:top-4 lg:h-fit">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
-              Пространства
-            </h2>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+                Пространства
+              </h2>
+              {isAdmin && (
+                <button
+                  type="button"
+                  onClick={() => setIsCreateSpaceOpen((p) => !p)}
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+                  title="Создать пространство"
+                  aria-label="Создать пространство"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+
+            {isAdmin && isCreateSpaceOpen && (
+              <div className="mt-3 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-2">
+                <input
+                  placeholder="Название пространства"
+                  className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                  value={newSpaceName}
+                  onChange={(e) => setNewSpaceName(e.target.value)}
+                />
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsCreateSpaceOpen(false)
+                      setNewSpaceName('')
+                    }}
+                    className="rounded-lg px-2 py-1 text-xs text-slate-600 hover:bg-slate-100"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    type="button"
+                    onClick={createSpaceFromSidebar}
+                    className="rounded-lg bg-teal-600 px-2 py-1 text-xs font-semibold text-white hover:bg-teal-700"
+                  >
+                    Ок
+                  </button>
+                </div>
+              </div>
+            )}
             <ul className="mt-3 space-y-2">
               {visibleSpaces.map((s) => (
                 <li key={s.id}>
-                  <button
-                    type="button"
-                    onClick={() => openSpaceWithBoard(s.id)}
-                    className={`w-full rounded-xl px-3 py-2 text-left text-sm transition ${
+                  <div
+                    className={`flex items-center gap-1 rounded-xl px-1 py-1 transition ${
                       s.id === space.id
-                        ? 'bg-blue-50 font-semibold text-blue-800 ring-1 ring-blue-200'
-                        : 'text-slate-700 hover:bg-slate-50'
+                        ? 'bg-blue-50 ring-1 ring-blue-200'
+                        : 'hover:bg-slate-50'
                     }`}
                   >
-                    {s.name}
-                  </button>
+                    <button
+                      type="button"
+                      onClick={() => openSpaceWithBoard(s.id)}
+                      className={`min-w-0 flex-1 truncate rounded-lg px-2 py-1 text-left text-sm ${
+                        s.id === space.id
+                          ? 'font-semibold text-blue-800'
+                          : 'text-slate-700'
+                      }`}
+                    >
+                      {s.name}
+                    </button>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => deleteSpaceFromSidebar(s.id)}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:bg-white hover:text-red-700"
+                        title="Удалить пространство"
+                        aria-label={`Удалить пространство ${s.name}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>
