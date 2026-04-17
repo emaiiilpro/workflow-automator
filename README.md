@@ -31,10 +31,16 @@ One-command деплой в `main` (коммит + push, без интеракт
 npm run deploy
 ```
 
-С сообщением коммита:
+Короткий алиас из корня проекта:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\deploy.ps1 -Message "feat: update board ui"
+.\deploy
+```
+
+С сообщением коммита (одной командой):
+
+```powershell
+npm run deploy -- "feat: update board ui"
 ```
 
 ## Демо-аккаунты

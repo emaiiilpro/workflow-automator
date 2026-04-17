@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "build:gh": "tsc --noEmit && vite build --base=/workflow-automator/",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "scripts\\deploy.cmd"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^17.0.0",
