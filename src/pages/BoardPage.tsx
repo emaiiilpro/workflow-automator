@@ -11,6 +11,8 @@ import { BoardColumn } from '@/components/board/BoardColumn'
 import { CreateTaskModal } from '@/components/board/CreateTaskModal'
 import { TaskReportModal } from '@/components/board/TaskReportModal'
 import { updateTask, reorderInColumn } from '@/store/slices/tasksSlice'
+import { addBoard } from '@/store/slices/boardsSlice'
+import { v4 as uuid } from 'uuid'
 
 export function BoardPage() {
   const { spaceId, boardId } = useParams<{ spaceId: string; boardId: string }>()
@@ -31,6 +33,7 @@ export function BoardPage() {
 
   const space = spaces.find((x) => x.id === spaceId)
   const board = boards.find((x) => x.id === boardId && x.spaceId === spaceId)
+  const visibleSpaces = spaces.filter((s) => isAdmin || (user ? s.memberIds.includes(user.id) : false))
 
   const members: User[] = useMemo(() => {
     if (!space) return []
@@ -119,6 +122,32 @@ export function BoardPage() {
     dispatch(updateTask({ taskId: draggableId, patch: { column: destCol } }))
     dispatch(reorderInColumn({ boardId, column: sourceCol, orderedIds: srcIds }))
     dispatch(reorderInColumn({ boardId, column: destCol, orderedIds: destIds }))
+  }
+
+  const openSpaceWithBoard = (targetSpaceId: string) => {
+    const spaceBoards = boards.filter((b) => b.spaceId === targetSpaceId)
+
+    if (spaceBoards.length > 0) {
+      navigate(`/spaces/${targetSpaceId}/board/${spaceBoards[0].id}`)
+      return
+    }
+
+    if (!isAdmin) {
+      toast.error('В этом пространстве ещё нет доски')
+      navigate(`/spaces/${targetSpaceId}`)
+      return
+    }
+
+    const newBoardId = uuid()
+    dispatch(
+      addBoard({
+        id: newBoardId,
+        spaceId: targetSpaceId,
+        name: 'Новая доска',
+      }),
+    )
+    toast.success('Создана новая доска в выбранном пространстве')
+    navigate(`/spaces/${targetSpaceId}/board/${newBoardId}`)
   }
 
   if (!spaceId || !boardId || !space || !board || !user) {
@@ -211,26 +240,53 @@ export function BoardPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1600px] overflow-x-auto px-4 py-6">
-        <DragDropContext onDragEnd={onDragEnd}>
-          <div className="flex min-w-min gap-4 pb-4">
-            {KANBAN_COLUMNS.map((col) => (
-              <BoardColumn
-                key={col.id}
-                columnId={col.id}
-                title={col.title}
-                tasks={tasksByColumn(col.id)}
-                assigneesOf={assigneesOf}
-                currentUserId={user.id}
-                isAdmin={isAdmin}
-                canCreateHere={col.id === 'assigned'}
-                onCreateClick={() => setCreateOpen(true)}
-                setReportForTaskId={setReportTaskId}
-                isDragDisabled={filtersActive}
-              />
-            ))}
+      <main className="mx-auto max-w-[1600px] px-4 py-6">
+        <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
+          <aside className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card lg:sticky lg:top-4 lg:h-fit">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+              Пространства
+            </h2>
+            <ul className="mt-3 space-y-2">
+              {visibleSpaces.map((s) => (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    onClick={() => openSpaceWithBoard(s.id)}
+                    className={`w-full rounded-xl px-3 py-2 text-left text-sm transition ${
+                      s.id === space.id
+                        ? 'bg-blue-50 font-semibold text-blue-800 ring-1 ring-blue-200'
+                        : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    {s.name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </aside>
+
+          <div className="overflow-x-auto">
+            <DragDropContext onDragEnd={onDragEnd}>
+              <div className="flex min-w-min gap-4 pb-4">
+                {KANBAN_COLUMNS.map((col) => (
+                  <BoardColumn
+                    key={col.id}
+                    columnId={col.id}
+                    title={col.title}
+                    tasks={tasksByColumn(col.id)}
+                    assigneesOf={assigneesOf}
+                    currentUserId={user.id}
+                    isAdmin={isAdmin}
+                    canCreateHere={col.id === 'assigned'}
+                    onCreateClick={() => setCreateOpen(true)}
+                    setReportForTaskId={setReportTaskId}
+                    isDragDisabled={filtersActive}
+                  />
+                ))}
+              </div>
+            </DragDropContext>
           </div>
-        </DragDropContext>
+        </div>
       </main>
 
       {createOpen && isAdmin && (
