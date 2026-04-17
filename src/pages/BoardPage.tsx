@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { DragDropContext, type DropResult } from '@hello-pangea/dnd'
-import { ArrowLeft, LayoutGrid, Plus, Search, SlidersHorizontal, Trash2 } from 'lucide-react'
+import { ArrowLeft, Check, LayoutGrid, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { useAuth } from '@/hooks/useAuth'
@@ -12,7 +12,7 @@ import { CreateTaskModal } from '@/components/board/CreateTaskModal'
 import { TaskReportModal } from '@/components/board/TaskReportModal'
 import { removeTasksByBoard, updateTask, reorderInColumn } from '@/store/slices/tasksSlice'
 import { addBoard, removeBoard } from '@/store/slices/boardsSlice'
-import { addSpace, removeSpace } from '@/store/slices/spacesSlice'
+import { addSpace, removeSpace, renameSpace } from '@/store/slices/spacesSlice'
 import { v4 as uuid } from 'uuid'
 
 export function BoardPage() {
@@ -33,6 +33,8 @@ export function BoardPage() {
   const [reportTaskId, setReportTaskId] = useState<string | null>(null)
   const [isCreateSpaceOpen, setIsCreateSpaceOpen] = useState(false)
   const [newSpaceName, setNewSpaceName] = useState('')
+  const [editingSpaceId, setEditingSpaceId] = useState<string | null>(null)
+  const [editingSpaceName, setEditingSpaceName] = useState('')
 
   const space = spaces.find((x) => x.id === spaceId)
   const board = boards.find((x) => x.id === boardId && x.spaceId === spaceId)
@@ -206,6 +208,29 @@ export function BoardPage() {
     toast.success('Пространство удалено')
   }
 
+  const startRenameSpace = (targetSpaceId: string, currentName: string) => {
+    if (!isAdmin) return
+    setEditingSpaceId(targetSpaceId)
+    setEditingSpaceName(currentName)
+  }
+
+  const submitRenameSpace = () => {
+    if (!isAdmin || !editingSpaceId) return
+    if (!editingSpaceName.trim()) {
+      toast.error('Название пространства не может быть пустым')
+      return
+    }
+    dispatch(
+      renameSpace({
+        spaceId: editingSpaceId,
+        name: editingSpaceName.trim(),
+      }),
+    )
+    setEditingSpaceId(null)
+    setEditingSpaceName('')
+    toast.success('Пространство переименовано')
+  }
+
   if (!spaceId || !boardId || !space || !board || !user) {
     return (
       <div className="p-8 text-center text-slate-600">
@@ -355,27 +380,79 @@ export function BoardPage() {
                         : 'hover:bg-slate-50'
                     }`}
                   >
-                    <button
-                      type="button"
-                      onClick={() => openSpaceWithBoard(s.id)}
-                      className={`min-w-0 flex-1 truncate rounded-lg px-2 py-1 text-left text-sm ${
-                        s.id === space.id
-                          ? 'font-semibold text-blue-800'
-                          : 'text-slate-700'
-                      }`}
-                    >
-                      {s.name}
-                    </button>
-                    {isAdmin && (
+                    {editingSpaceId === s.id ? (
+                      <div className="flex min-w-0 flex-1 items-center gap-1">
+                        <input
+                          className="min-w-0 flex-1 rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                          value={editingSpaceName}
+                          onChange={(e) => setEditingSpaceName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') submitRenameSpace()
+                            if (e.key === 'Escape') {
+                              setEditingSpaceId(null)
+                              setEditingSpaceName('')
+                            }
+                          }}
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={submitRenameSpace}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:bg-white hover:text-emerald-700"
+                          title="Сохранить"
+                          aria-label="Сохранить новое название пространства"
+                        >
+                          <Check className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingSpaceId(null)
+                            setEditingSpaceName('')
+                          }}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:bg-white hover:text-slate-700"
+                          title="Отмена"
+                          aria-label="Отменить переименование пространства"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
                       <button
                         type="button"
-                        onClick={() => deleteSpaceFromSidebar(s.id)}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:bg-white hover:text-red-700"
-                        title="Удалить пространство"
-                        aria-label={`Удалить пространство ${s.name}`}
+                        onClick={() => openSpaceWithBoard(s.id)}
+                        className={`min-w-0 flex-1 truncate rounded-lg px-2 py-1 text-left text-sm ${
+                          s.id === space.id
+                            ? 'font-semibold text-blue-800'
+                            : 'text-slate-700'
+                        }`}
                       >
-                        <Trash2 className="h-4 w-4" />
+                        {s.name}
                       </button>
+                    )}
+                    {isAdmin && (
+                      <>
+                        {editingSpaceId !== s.id && (
+                          <button
+                            type="button"
+                            onClick={() => startRenameSpace(s.id, s.name)}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:bg-white hover:text-blue-700"
+                            title="Переименовать пространство"
+                            aria-label={`Переименовать пространство ${s.name}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => deleteSpaceFromSidebar(s.id)}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:bg-white hover:text-red-700"
+                          title="Удалить пространство"
+                          aria-label={`Удалить пространство ${s.name}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </>
                     )}
                   </div>
                 </li>

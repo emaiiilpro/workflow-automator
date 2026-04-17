@@ -21,11 +21,25 @@ const spacesSlice = createSlice({
         space.memberIds.push(action.payload.userId)
       }
     },
+    renameSpace(
+      state,
+      action: PayloadAction<{ spaceId: string; name: string }>,
+    ) {
+      const space = state.find((s) => s.id === action.payload.spaceId)
+      if (!space) return
+      space.name = action.payload.name
+    },
     replaceSpaces(_state, action: PayloadAction<Space[]>) {
       return action.payload
     },
   },
 })
 
-export const { addSpace, removeSpace, addMemberToSpace, replaceSpaces } = spacesSlice.actions
+export const {
+  addSpace,
+  removeSpace,
+  addMemberToSpace,
+  renameSpace,
+  replaceSpaces,
+} = spacesSlice.actions
 export default spacesSlice.reducer
