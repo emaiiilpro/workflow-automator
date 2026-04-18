@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { DragDropContext, type DropResult } from '@hello-pangea/dnd'
 import { ArrowLeft, Check, LayoutGrid, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from 'lucide-react'
@@ -48,6 +48,8 @@ export function BoardPage() {
   const [editingSpaceName, setEditingSpaceName] = useState('')
   const [isAddColumnOpen, setIsAddColumnOpen] = useState(false)
   const [newColumnName, setNewColumnName] = useState('')
+  const boardScrollRef = useRef<HTMLDivElement | null>(null)
+  const addColumnCardRef = useRef<HTMLDivElement | null>(null)
 
   const space = spaces.find((x) => x.id === spaceId)
   const board = boards.find((x) => x.id === boardId && x.spaceId === spaceId)
@@ -299,6 +301,23 @@ export function BoardPage() {
     toast.success('Колонка добавлена')
   }
 
+  const openAddColumnPanel = () => {
+    setIsAddColumnOpen(true)
+    requestAnimationFrame(() => {
+      if (addColumnCardRef.current) {
+        addColumnCardRef.current.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'end',
+        })
+        return
+      }
+      const container = boardScrollRef.current
+      if (!container) return
+      container.scrollTo({ left: container.scrollWidth, behavior: 'smooth' })
+    })
+  }
+
   const createQuickTask = (columnId: TaskColumn, title: string) => {
     if (!boardId || !user || !isAdmin) return
     const order = tasks
@@ -429,9 +448,10 @@ export function BoardPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1600px] px-4 py-6">
-        <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
-          <aside className="rounded-2xl border border-slate-200 bg-white p-4 shadow-card lg:sticky lg:top-4 lg:h-fit">
+      <main className="w-full px-4 py-6">
+        <div ref={boardScrollRef} className="overflow-x-auto pb-2">
+          <div className="flex min-w-max items-start gap-4">
+            <aside className="w-[260px] shrink-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-card lg:sticky lg:top-4 lg:h-fit">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
                 Пространства
@@ -566,11 +586,11 @@ export function BoardPage() {
                 </li>
               ))}
             </ul>
-          </aside>
+            </aside>
 
-          <div className="overflow-x-auto">
-            <DragDropContext onDragEnd={onDragEnd}>
-              <div className="flex min-w-min gap-4 pb-4">
+            <div className="relative min-w-max">
+              <DragDropContext onDragEnd={onDragEnd}>
+                <div className="flex min-w-max gap-4 pb-4">
                 {boardColumns.map((col) => (
                   <BoardColumn
                     key={col.id}
@@ -590,7 +610,10 @@ export function BoardPage() {
                   />
                 ))}
                 {isAdmin && (
-                  <div className="flex w-[min(100%,320px)] shrink-0 flex-col rounded-2xl bg-slate-100/70 p-3 shadow-inner">
+                  <div
+                    ref={addColumnCardRef}
+                    className="w-[240px] shrink-0 self-start rounded-2xl bg-slate-100/70 p-3 shadow-inner"
+                  >
                     {isAddColumnOpen ? (
                       <div className="space-y-2 rounded-xl bg-white p-2 shadow-sm ring-1 ring-slate-200">
                         <input
@@ -631,17 +654,31 @@ export function BoardPage() {
                     ) : (
                       <button
                         type="button"
-                        onClick={() => setIsAddColumnOpen(true)}
-                        className="flex h-full min-h-[82px] items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white/65 px-3 text-lg font-semibold text-white shadow-sm hover:bg-white/80"
+                        onClick={openAddColumnPanel}
+                        className="flex min-h-[68px] items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white/85 px-3 text-sm font-semibold text-slate-700 shadow-sm hover:border-slate-400 hover:bg-white"
                       >
-                        <Plus className="h-5 w-5" />
-                        Добавьте ещё одну колонку
+                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-slate-700">
+                          <Plus className="h-3.5 w-3.5" />
+                        </span>
+                        Добавить колонку
                       </button>
                     )}
                   </div>
                 )}
-              </div>
-            </DragDropContext>
+                </div>
+              </DragDropContext>
+              {isAdmin && !isAddColumnOpen && (
+                <button
+                  type="button"
+                  onClick={openAddColumnPanel}
+                  className="absolute bottom-3 right-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700"
+                  aria-label="Добавить список"
+                  title="Добавить список"
+                >
+                  <Plus className="h-5 w-5" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </main>
