@@ -35,7 +35,7 @@ export function LoginPage() {
     }
     dispatch(loginSuccess({ userId: u.id }))
     toast.success(`Добро пожаловать, ${u.name}`)
-    navigate('/spaces')
+    navigate('/board')
   }
 
   const handleRegister = (e: React.FormEvent) => {
@@ -60,11 +60,11 @@ export function LoginPage() {
     )
     dispatch(loginSuccess({ userId: id }))
     toast.success('Аккаунт создан')
-    navigate('/spaces')
+    navigate('/board')
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/spaces" replace />
+    return <Navigate to="/board" replace />
   }
 
   return (
@@ -79,7 +79,7 @@ export function LoginPage() {
         </div>
       </div>
 
-      <div className="w-full max-w-md rounded-2xl border border-white/60 bg-white/90 p-8 shadow-xl backdrop-blur">
+      <div className="w-full max-w-md rounded-2xl border border-white/60 bg-white/90 p-8 shadow-xl">
         <div className="mb-6 flex rounded-xl bg-slate-100 p-1">
           <button
             type="button"

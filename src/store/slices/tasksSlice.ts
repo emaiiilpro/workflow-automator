@@ -84,6 +84,15 @@ const tasksSlice = createSlice({
     removeTasksByBoard(state, action: PayloadAction<string>) {
       return state.filter((t) => t.boardId !== action.payload)
     },
+    removeTasksByBoardColumn(
+      state,
+      action: PayloadAction<{ boardId: string; column: TaskColumn }>,
+    ) {
+      return state.filter(
+        (task) =>
+          !(task.boardId === action.payload.boardId && task.column === action.payload.column),
+      )
+    },
     replaceTasks(_state, action: PayloadAction<Task[]>) {
       return action.payload
     },
@@ -100,6 +109,7 @@ export const {
   setAssigneeCompleted,
   removeTask,
   removeTasksByBoard,
+  removeTasksByBoardColumn,
   replaceTasks,
 } = tasksSlice.actions
 export default tasksSlice.reducer

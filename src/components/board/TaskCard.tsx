@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { Draggable } from '@hello-pangea/dnd'
-import { Calendar, Check, Flag, GripVertical, Paperclip, Pencil } from 'lucide-react'
+import { Calendar, Check, Flag, GripVertical, Paperclip, Pencil, X } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { ru } from 'date-fns/locale'
 import toast from 'react-hot-toast'
-import type { Priority, Task, User } from '@/types'
+import type { Priority, Task, TaskAttachment, User } from '@/types'
 import { priorityBadgeClass, priorityLabel } from '@/utils/priority'
 import { isOverdue } from '@/utils/deadline'
 import { AvatarStack } from '@/components/ui/AvatarStack'
@@ -18,6 +18,8 @@ import {
 } from '@/store/slices/tasksSlice'
 import { KANBAN_COLUMNS } from '@/constants/kanban'
 import { v4 as uuid } from 'uuid'
+
+const DOWNLOADED_ATTACHMENTS_KEY = 'workflow-downloaded-attachments-v1'
 
 type Props = {
   task: Task
@@ -38,7 +40,14 @@ export function TaskCard({
   const dispatch = useAppDispatch()
   const [editing, setEditing] = useState(false)
   const [expanded, setExpanded] = useState(false)
+  const [preview, setPreview] = useState<{
+    name: string
+    mime: string
+    url: string | null
+    text: string | null
+  } | null>(null)
   const overdue = isOverdue(task.deadline)
+  const descriptionAttachment = task.descriptionAttachment
   const isAssignee = task.assigneeIds.includes(currentUserId)
   const currentReport = task.assigneeReports?.[currentUserId]
 
@@ -98,6 +107,110 @@ export function TaskCard({
     reader.readAsDataURL(file)
   }
 
+  const readDownloadedAttachmentIds = (): string[] => {
+    try {
+      const raw = localStorage.getItem(DOWNLOADED_ATTACHMENTS_KEY)
+      if (!raw) return []
+      const parsed = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : []
+    } catch {
+      return []
+    }
+  }
+
+  const markAttachmentAsDownloaded = (attachmentId: string) => {
+    const current = new Set(readDownloadedAttachmentIds())
+    current.add(attachmentId)
+    localStorage.setItem(DOWNLOADED_ATTACHMENTS_KEY, JSON.stringify(Array.from(current)))
+  }
+
+  const closePreview = () => {
+    if (preview?.url) URL.revokeObjectURL(preview.url)
+    setPreview(null)
+  }
+
+  const openAttachment = async (file: TaskAttachment) => {
+    const raw = file.dataBase64
+
+    const buildBlob = (): Blob | null => {
+      if (raw.startsWith('data:')) {
+        const parts = raw.split(',')
+        if (parts.length < 2) return null
+        const header = parts[0]
+        const mimeMatch = header.match(/data:(.*?);base64/)
+        const mime = mimeMatch?.[1] || file.mime || 'application/octet-stream'
+        const bytes = atob(parts[1])
+        const array = new Uint8Array(bytes.length)
+        for (let i = 0; i < bytes.length; i += 1) {
+          array[i] = bytes.charCodeAt(i)
+        }
+        return new Blob([array], { type: mime })
+      }
+
+      try {
+        const bytes = atob(raw)
+        const array = new Uint8Array(bytes.length)
+        for (let i = 0; i < bytes.length; i += 1) {
+          array[i] = bytes.charCodeAt(i)
+        }
+        return new Blob([array], { type: file.mime || 'application/octet-stream' })
+      } catch {
+        return null
+      }
+    }
+
+    const blob = buildBlob()
+    if (!blob) {
+      toast.error('Не удалось открыть файл')
+      return
+    }
+
+    const url = URL.createObjectURL(blob)
+    const mime = (blob.type || file.mime || '').toLowerCase()
+    const name = file.name.toLowerCase()
+    const isTextPreview = mime.startsWith('text/') || /\.(txt|md|json|csv|log)$/.test(name)
+    const isImagePreview = mime.startsWith('image/')
+    const isPdfPreview = mime === 'application/pdf'
+
+    if (isTextPreview) {
+      const text = await blob.text()
+      setPreview({
+        name: file.name,
+        mime: mime || 'text/plain',
+        url: null,
+        text,
+      })
+      return
+    }
+
+    if (isImagePreview || isPdfPreview) {
+      setPreview({
+        name: file.name,
+        mime,
+        url,
+        text: null,
+      })
+      return
+    }
+    const downloadedIds = new Set(readDownloadedAttachmentIds())
+    if (downloadedIds.has(file.id)) {
+      URL.revokeObjectURL(url)
+      toast('Файл уже загружен ранее. Откройте его из папки "Загрузки".')
+      return
+    }
+
+    const link = document.createElement('a')
+    link.href = url
+    link.download = file.name
+    link.style.display = 'none'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    markAttachmentAsDownloaded(file.id)
+    toast.success('Файл загружен в папку "Загрузки"')
+    setTimeout(() => URL.revokeObjectURL(url), 5_000)
+  }
+
   const toggleAssigneeCompleted = (assigneeId: string, checked: boolean) => {
     // Отмечать можно только себя.
     if (currentUserId !== assigneeId) {
@@ -131,35 +244,43 @@ export function TaskCard({
   }
 
   return (
-    <Draggable
-      draggableId={task.id}
-      index={index}
-      isDragDisabled={isDragDisabled || task.column === 'in_progress'}
-    >
-      {(provided, snapshot) => (
-        <div
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-          {...provided.dragHandleProps}
-          className={`group rounded-xl border border-slate-200/80 bg-white p-3 shadow-card transition hover:shadow-card-hover ${
-            snapshot.isDragging ? 'rotate-1 shadow-lg ring-2 ring-teal-400/40' : ''
-          }`}
-          onClick={() => {
-            if (task.column === 'in_progress') {
-              setExpanded((p) => !p)
-            }
-          }}
-        >
+    <>
+      <Draggable
+        draggableId={task.id}
+        index={index}
+        isDragDisabled={isDragDisabled || task.column === 'in_progress'}
+      >
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.draggableProps}
+            {...provided.dragHandleProps}
+            className={`group rounded-xl border border-slate-200/80 bg-white p-3 shadow-card transition hover:shadow-card-hover ${
+              snapshot.isDragging ? 'rotate-1 shadow-lg ring-2 ring-teal-400/40' : ''
+            }`}
+            onClick={() => {
+              if (task.column === 'in_progress') {
+                setExpanded((p) => !p)
+              }
+            }}
+          >
           <div className="flex gap-2">
             <div className="mt-0.5 cursor-grab text-slate-300 hover:text-slate-500">
               <GripVertical className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
-              {task.descriptionAttachment && (
-                <div className="mb-2 inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-[11px] text-slate-700">
+              {descriptionAttachment && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    openAttachment(descriptionAttachment)
+                  }}
+                  className="mb-2 inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-200"
+                >
                   <Paperclip className="h-3 w-3" />
-                  {task.descriptionAttachment.name}
-                </div>
+                  {descriptionAttachment.name}
+                </button>
               )}
               <p className="text-sm font-medium leading-snug text-slate-900">{task.description}</p>
 
@@ -253,8 +374,17 @@ export function TaskCard({
                         </p>
                         <ul className="mt-1 space-y-1">
                           {currentReport.attachments.map((f) => (
-                            <li key={f.id} className="truncate text-[11px] text-emerald-800">
-                              • {f.name}
+                            <li key={f.id}>
+                                <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  void openAttachment(f)
+                                }}
+                                className="truncate text-[11px] text-emerald-800 hover:underline"
+                              >
+                                • {f.name}
+                              </button>
                             </li>
                           ))}
                         </ul>
@@ -344,8 +474,51 @@ export function TaskCard({
               <p className="mt-2 text-[10px] text-slate-400">Клик по дате — изменить дедлайн</p>
             </div>
           </div>
+          </div>
+        )}
+      </Draggable>
+
+      {preview && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/45 p-4"
+          onClick={closePreview}
+        >
+          <div
+            className="relative flex max-h-[90vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+              <p className="truncate text-sm font-semibold text-slate-900">{preview.name}</p>
+              <button
+                type="button"
+                onClick={closePreview}
+                className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
+                aria-label="Закрыть предпросмотр"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="overflow-auto p-4">
+              {preview.text !== null && (
+                <pre className="max-h-[70vh] overflow-auto whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-800">
+                  {preview.text}
+                </pre>
+              )}
+              {preview.text === null && preview.mime.startsWith('image/') && preview.url && (
+                <img src={preview.url} alt={preview.name} className="mx-auto max-h-[70vh] rounded-lg" />
+              )}
+              {preview.text === null && preview.mime === 'application/pdf' && preview.url && (
+                <iframe
+                  src={preview.url}
+                  className="h-[70vh] w-full rounded-lg border border-slate-200"
+                  title={preview.name}
+                />
+              )}
+            </div>
+          </div>
         </div>
       )}
-    </Draggable>
+    </>
   )
 }

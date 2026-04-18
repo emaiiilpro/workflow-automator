@@ -9,8 +9,21 @@ import { KANBAN_COLUMNS, canMoveColumn } from '@/constants/kanban'
 import type { Priority, Task, TaskColumn, User } from '@/types'
 import { BoardColumn } from '@/components/board/BoardColumn'
 import { CreateTaskModal } from '@/components/board/CreateTaskModal'
-import { removeTasksByBoard, updateTask, reorderInColumn } from '@/store/slices/tasksSlice'
-import { addBoard, removeBoard } from '@/store/slices/boardsSlice'
+import {
+  addTask,
+  removeTasksByBoard,
+  removeTasksByBoardColumn,
+  updateTask,
+  reorderInColumn,
+} from '@/store/slices/tasksSlice'
+import {
+  addBoard,
+  addCustomColumn,
+  setBoardMembers,
+  setSpaceBoardsMembers,
+  removeCustomColumn,
+  removeBoard,
+} from '@/store/slices/boardsSlice'
 import { addSpace, removeSpace, renameSpace } from '@/store/slices/spacesSlice'
 import { v4 as uuid } from 'uuid'
 
@@ -33,17 +46,33 @@ export function BoardPage() {
   const [newSpaceName, setNewSpaceName] = useState('')
   const [editingSpaceId, setEditingSpaceId] = useState<string | null>(null)
   const [editingSpaceName, setEditingSpaceName] = useState('')
+  const [isAddColumnOpen, setIsAddColumnOpen] = useState(false)
+  const [newColumnName, setNewColumnName] = useState('')
 
   const space = spaces.find((x) => x.id === spaceId)
   const board = boards.find((x) => x.id === boardId && x.spaceId === spaceId)
   const visibleSpaces = spaces.filter((s) => isAdmin || (user ? s.memberIds.includes(user.id) : false))
+  const boardsInCurrentSpace = boards.filter((item) => item.spaceId === spaceId)
 
-  const members: User[] = useMemo(() => {
+  const spaceMembers: User[] = useMemo(() => {
     if (!space) return []
     return space.memberIds
       .map((id) => users.find((u) => u.id === id))
       .filter((u): u is User => !!u)
   }, [space, users])
+
+  const boardMemberIds = useMemo(
+    () => board?.memberIds ?? space?.memberIds ?? [],
+    [board?.memberIds, space?.memberIds],
+  )
+
+  const boardMembers: User[] = useMemo(
+    () =>
+      boardMemberIds
+        .map((id) => users.find((u) => u.id === id))
+        .filter((u): u is User => !!u),
+    [boardMemberIds, users],
+  )
 
   const assigneesOf = (ids: string[]) =>
     ids.map((id) => users.find((u) => u.id === id)).filter((u): u is User => !!u)
@@ -70,6 +99,18 @@ export function BoardPage() {
       return true
     })
   }, [baseTasks, search, filterUserId, filterPriority])
+
+  const boardColumns = useMemo(() => {
+    const custom =
+      board?.customColumns
+        ?.slice()
+        .sort((a, b) => a.order - b.order)
+        .map((col) => ({ id: col.id as TaskColumn, title: col.title, isCustom: true })) ?? []
+    return [
+      ...KANBAN_COLUMNS.map((col) => ({ id: col.id as TaskColumn, title: col.title, isCustom: false })),
+      ...custom,
+    ]
+  }, [board])
 
   const tasksByColumn = (col: TaskColumn): Task[] =>
     visibleTasks
@@ -142,7 +183,7 @@ export function BoardPage() {
 
     if (!isAdmin) {
       toast.error('В этом пространстве ещё нет доски')
-      navigate(`/spaces/${targetSpaceId}`)
+      navigate('/board')
       return
     }
 
@@ -152,6 +193,7 @@ export function BoardPage() {
         id: newBoardId,
         spaceId: targetSpaceId,
         name: 'Новая доска',
+        memberIds: space?.memberIds ?? [],
       }),
     )
     toast.success('Создана новая доска в выбранном пространстве')
@@ -178,6 +220,7 @@ export function BoardPage() {
         id: newBoardId,
         spaceId: newSpaceId,
         name: 'Новая доска',
+        memberIds: [user.id],
       }),
     )
     setNewSpaceName('')
@@ -202,7 +245,7 @@ export function BoardPage() {
     const remaining = visibleSpaces.filter((s) => s.id !== targetSpaceId)
     if (remaining.length === 0) {
       toast.success('Пространство удалено')
-      navigate('/spaces')
+      navigate('/board')
       return
     }
 
@@ -234,12 +277,76 @@ export function BoardPage() {
     toast.success('Пространство переименовано')
   }
 
+  const submitNewColumn = () => {
+    if (!boardId || !isAdmin) return
+    if (!newColumnName.trim()) {
+      toast.error('Введите название колонки')
+      return
+    }
+    const nextOrder = board?.customColumns?.length ?? 0
+    dispatch(
+      addCustomColumn({
+        boardId,
+        column: {
+          id: `custom_${uuid()}`,
+          title: newColumnName.trim(),
+          order: nextOrder,
+        },
+      }),
+    )
+    setNewColumnName('')
+    setIsAddColumnOpen(false)
+    toast.success('Колонка добавлена')
+  }
+
+  const createQuickTask = (columnId: TaskColumn, title: string) => {
+    if (!boardId || !user || !isAdmin) return
+    const order = tasks
+      .filter((task) => task.boardId === boardId && task.column === columnId)
+      .length
+    dispatch(
+      addTask({
+        id: uuid(),
+        boardId,
+        column: columnId,
+        description: title,
+        deadline: new Date().toISOString().slice(0, 10),
+        priority: 'medium',
+        assigneeIds: [user.id],
+        order,
+      }),
+    )
+    toast.success('Карточка добавлена')
+  }
+
+  const toggleBoardMember = (userId: string, checked: boolean) => {
+    if (!boardId || !isAdmin) return
+    const nextIds = checked
+      ? Array.from(new Set([...boardMemberIds, userId]))
+      : boardMemberIds.filter((id) => id !== userId)
+    dispatch(setBoardMembers({ boardId, memberIds: nextIds }))
+  }
+
+  const applyMembersToAllSpaceBoards = () => {
+    if (!spaceId || !isAdmin) return
+    dispatch(setSpaceBoardsMembers({ spaceId, memberIds: boardMemberIds }))
+    toast.success('Участники применены ко всем доскам пространства')
+  }
+
+  const deleteCustomColumn = (columnId: TaskColumn, title: string) => {
+    if (!boardId || !isAdmin || !columnId.startsWith('custom_')) return
+    if (!confirm(`Удалить колонку «${title}» и все карточки в ней?`)) return
+    dispatch(removeTasksByBoardColumn({ boardId, column: columnId }))
+    dispatch(removeCustomColumn({ boardId, columnId: columnId as `custom_${string}` }))
+    toast.success('Колонка удалена')
+  }
+
   if (!spaceId || !boardId || !space || !board || !user) {
     return (
       <div className="p-8 text-center text-slate-600">
         Доска не найдена.{' '}
-        <button type="button" className="text-teal-700 underline" onClick={() => navigate('/spaces')}>
-          К пространствам
+        <button type="button" className="text-teal-700 underline" onClick={() => navigate('/board')}>
+          К доске
         </button>
       </div>
     )
@@ -249,7 +356,7 @@ export function BoardPage() {
     return (
       <div className="p-8 text-center text-slate-600">
         Нет доступа к этому пространству.{' '}
-        <button type="button" className="text-teal-700 underline" onClick={() => navigate('/spaces')}>
+        <button type="button" className="text-teal-700 underline" onClick={() => navigate('/board')}>
           Назад
         </button>
       </div>
@@ -258,11 +365,11 @@ export function BoardPage() {
 
   return (
     <div className="min-h-screen bg-[linear-gradient(rgba(248,250,252,0.72),rgba(248,250,252,0.72)),url('/workflow-bg.png')] bg-cover bg-center bg-fixed">
-      <header className="border-b border-white/60 bg-white/70 backdrop-blur-md">
+      <header className="border-b border-white/60 bg-white/70">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-4 px-4 py-4">
           <div className="flex flex-wrap items-center gap-3">
             <Link
-              to={`/spaces/${spaceId}`}
+              to="/board"
               className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -302,7 +409,7 @@ export function BoardPage() {
               onChange={(e) => setFilterUserId(e.target.value)}
             >
               <option value="">Все исполнители</option>
-              {members.map((m) => (
+              {boardMembers.map((m) => (
                 <option key={m.id} value={m.id}>
                   {m.name}
                 </option>
@@ -464,7 +571,7 @@ export function BoardPage() {
           <div className="overflow-x-auto">
             <DragDropContext onDragEnd={onDragEnd}>
               <div className="flex min-w-min gap-4 pb-4">
-                {KANBAN_COLUMNS.map((col) => (
+                {boardColumns.map((col) => (
                   <BoardColumn
                     key={col.id}
                     columnId={col.id}
@@ -475,9 +582,64 @@ export function BoardPage() {
                     isAdmin={isAdmin}
                     canCreateHere={col.id === 'assigned'}
                     onCreateClick={() => setCreateOpen(true)}
+                    canQuickCreate={col.isCustom}
+                    onQuickCreate={(title) => createQuickTask(col.id, title)}
+                    canDelete={col.isCustom}
+                    onDelete={() => deleteCustomColumn(col.id, col.title)}
                     isDragDisabled={filtersActive}
                   />
                 ))}
+                {isAdmin && (
+                  <div className="flex w-[min(100%,320px)] shrink-0 flex-col rounded-2xl bg-slate-100/70 p-3 shadow-inner">
+                    {isAddColumnOpen ? (
+                      <div className="space-y-2 rounded-xl bg-white p-2 shadow-sm ring-1 ring-slate-200">
+                        <input
+                          autoFocus
+                          value={newColumnName}
+                          onChange={(e) => setNewColumnName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') submitNewColumn()
+                            if (e.key === 'Escape') {
+                              setIsAddColumnOpen(false)
+                              setNewColumnName('')
+                            }
+                          }}
+                          placeholder="Введите имя колонки..."
+                          className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                        />
+                        <div className="flex items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={submitNewColumn}
+                            className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
+                          >
+                            Добавить список
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsAddColumnOpen(false)
+                              setNewColumnName('')
+                            }}
+                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100"
+                            aria-label="Закрыть форму добавления колонки"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setIsAddColumnOpen(true)}
+                        className="flex h-full min-h-[82px] items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 bg-white/65 px-3 text-lg font-semibold text-white shadow-sm hover:bg-white/80"
+                      >
+                        <Plus className="h-5 w-5" />
+                        Добавьте ещё одну колонку
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </DragDropContext>
           </div>
@@ -487,7 +649,11 @@ export function BoardPage() {
       {createOpen && isAdmin && (
         <CreateTaskModal
           boardId={board.id}
-          members={members}
+          boardMembers={boardMembers}
+          spaceMembers={spaceMembers}
+          onToggleBoardMember={toggleBoardMember}
+          canApplyToAllBoards={boardsInCurrentSpace.length > 1}
+          onApplyToAllBoards={applyMembersToAllSpaceBoards}
           onClose={() => setCreateOpen(false)}
         />
       )}

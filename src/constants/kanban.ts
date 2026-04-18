@@ -1,11 +1,10 @@
-import type { TaskColumn } from '@/types'
+import type { BaseTaskColumn, TaskColumn } from '@/types'
 
 /** Колонки Kanban слева направо (индекс = порядок «вперёд») */
-export const KANBAN_COLUMNS: { id: TaskColumn; title: string }[] = [
+export const KANBAN_COLUMNS: { id: BaseTaskColumn; title: string }[] = [
   { id: 'assigned', title: 'Назначенные' },
   { id: 'in_progress', title: 'В работе' },
   { id: 'completed', title: 'Выполненные' },
-  { id: 'archive', title: 'Архив' },
 ]
 
 export function columnIndex(column: TaskColumn): number {

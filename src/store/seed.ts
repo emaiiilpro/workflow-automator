@@ -45,6 +45,7 @@ const demoBoards: Board[] = [
     id: boardId,
     spaceId,
     name: 'Релиз портала',
+    memberIds: [adminId, userId, user2Id],
   },
 ]
 

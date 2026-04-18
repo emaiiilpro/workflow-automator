@@ -4,7 +4,8 @@ export type Role = 'admin' | 'user'
 export type Priority = 'low' | 'medium' | 'high'
 
 /** Колонки Kanban (фиксированный порядок слева направо) */
-export type TaskColumn = 'assigned' | 'in_progress' | 'completed' | 'archive'
+export type BaseTaskColumn = 'assigned' | 'in_progress' | 'completed'
+export type TaskColumn = BaseTaskColumn | `custom_${string}`
 
 export interface User {
   id: string
@@ -26,6 +27,15 @@ export interface Board {
   id: string
   spaceId: string
   name: string
+  /** Участники, прикрепленные к этой доске */
+  memberIds?: string[]
+  customColumns?: CustomBoardColumn[]
+}
+
+export interface CustomBoardColumn {
+  id: `custom_${string}`
+  title: string
+  order: number
 }
 
 export interface TaskAttachment {
