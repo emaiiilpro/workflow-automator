@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { DragDropContext, type DropResult } from '@hello-pangea/dnd'
-import { ArrowLeft, Check, LayoutGrid, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from 'lucide-react'
+import { Check, Pencil, Plus, Search, SlidersHorizontal, Trash2, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAppDispatch, useAppSelector } from '@/store/hooks'
 import { useAuth } from '@/hooks/useAuth'
@@ -385,26 +385,7 @@ export function BoardPage() {
   return (
     <div className="min-h-screen bg-[linear-gradient(rgba(248,250,252,0.72),rgba(248,250,252,0.72)),url('/workflow-bg.png')] bg-cover bg-center bg-fixed">
       <header className="border-b border-white/60 bg-white/70">
-        <div className="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-4 px-4 py-4">
-          <div className="flex flex-wrap items-center gap-3">
-            <Link
-              to="/board"
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Назад
-            </Link>
-            <div className="flex items-center gap-2">
-              <LayoutGrid className="h-6 w-6 text-teal-600" />
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">{space.name}</p>
-                <h1 className="text-lg font-bold text-slate-900">{board.name}</h1>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="mx-auto flex max-w-[1600px] flex-wrap items-end gap-3 border-t border-slate-100 px-4 py-3">
+        <div className="mx-auto flex max-w-[1600px] flex-wrap items-end gap-3 px-4 py-3">
           {filtersActive && (
             <p className="w-full text-xs text-amber-800">
               Активны фильтры — перетаскивание отключено, чтобы не сбить порядок задач.
