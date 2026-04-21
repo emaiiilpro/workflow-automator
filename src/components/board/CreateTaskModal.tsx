@@ -1,30 +1,38 @@
-import { useState } from 'react'
-import { X } from 'lucide-react'
+import { useRef, useState } from 'react'
+import { AlarmClock, Calendar, X } from 'lucide-react'
 import { v4 as uuid } from 'uuid'
 import toast from 'react-hot-toast'
-import type { Priority, User } from '@/types'
+import type { Priority, Task, User } from '@/types'
 import { useAppDispatch } from '@/store/hooks'
-import { addTask } from '@/store/slices/tasksSlice'
+import { addTask, updateTask } from '@/store/slices/tasksSlice'
 import { priorityLabel } from '@/utils/priority'
+import { normalizeDueTimeFromInput } from '@/utils/deadline'
 
 type Props = {
   boardId: string
   boardMembers: User[]
   onClose: () => void
+  /** Редактирование существующей задачи в «Назначенные» */
+  taskToEdit?: Task | null
 }
 
 export function CreateTaskModal({
   boardId,
   boardMembers,
   onClose,
+  taskToEdit = null,
 }: Props) {
   const dispatch = useAppDispatch()
-  const [description, setDescription] = useState('')
-  const [deadline, setDeadline] = useState(() => new Date().toISOString().slice(0, 10))
-  const [priority, setPriority] = useState<Priority>('medium')
+  const isEdit = Boolean(taskToEdit)
+  const [description, setDescription] = useState(() => taskToEdit?.description ?? '')
+  const [deadline, setDeadline] = useState(
+    () => taskToEdit?.deadline ?? new Date().toISOString().slice(0, 10),
+  )
+  const [dueTime, setDueTime] = useState(() => taskToEdit?.dueTime ?? '')
+  const [priority, setPriority] = useState<Priority>(() => taskToEdit?.priority ?? 'medium')
   const [descriptionFile, setDescriptionFile] = useState<File | null>(null)
   const [assigneeIds, setAssigneeIds] = useState<string[]>(() =>
-    boardMembers[0] ? [boardMembers[0].id] : [],
+    taskToEdit ? [...taskToEdit.assigneeIds] : boardMembers[0] ? [boardMembers[0].id] : [],
   )
 
   const toggleAssignee = (id: string) => {
@@ -43,6 +51,9 @@ export function CreateTaskModal({
     else setAssigneeIds([...allMemberIds])
   }
 
+  const dateInputRef = useRef<HTMLInputElement>(null)
+  const timeInputRef = useRef<HTMLInputElement>(null)
+
   const submit = () => {
     if (!description.trim()) {
       toast.error('Введите описание')
@@ -52,6 +63,52 @@ export function CreateTaskModal({
       toast.error('Назначьте хотя бы одного участника')
       return
     }
+
+    const normalizedTime = normalizeDueTimeFromInput(dueTime)
+    if (normalizedTime === undefined) {
+      toast.error('Некорректное время, используйте формат ЧЧ:ММ')
+      return
+    }
+
+    if (isEdit && taskToEdit) {
+      const patch: Partial<Task> = {
+        description: description.trim(),
+        deadline,
+        priority,
+        assigneeIds,
+        dueTime: normalizedTime,
+      }
+      if (descriptionFile) {
+        const reader = new FileReader()
+        reader.onload = () => {
+          const data = reader.result
+          if (typeof data !== 'string') return
+          dispatch(
+            updateTask({
+              taskId: taskToEdit.id,
+              patch: {
+                ...patch,
+                descriptionAttachment: {
+                  id: uuid(),
+                  name: descriptionFile.name,
+                  mime: descriptionFile.type || 'application/octet-stream',
+                  dataBase64: data,
+                },
+              },
+            }),
+          )
+          toast.success('Задача обновлена')
+          onClose()
+        }
+        reader.readAsDataURL(descriptionFile)
+        return
+      }
+      dispatch(updateTask({ taskId: taskToEdit.id, patch }))
+      toast.success('Задача обновлена')
+      onClose()
+      return
+    }
+
     const taskId = uuid()
     const baseTask = {
       id: taskId,
@@ -59,6 +116,7 @@ export function CreateTaskModal({
       column: 'assigned' as const,
       description: description.trim(),
       deadline,
+      ...(normalizedTime ? { dueTime: normalizedTime } : {}),
       priority,
       assigneeIds,
       order: Date.now(),
@@ -112,12 +170,23 @@ export function CreateTaskModal({
           <X className="h-5 w-5" />
         </button>
         <div className="overflow-y-auto px-6 pb-4 pt-6">
-          <h2 className="text-lg font-semibold text-slate-900">Новая задача</h2>
-          <p className="mt-1 text-sm text-slate-500">Появится в колонке «Назначенные»</p>
+          <h2 className="text-lg font-semibold text-slate-900">
+            {isEdit ? 'Редактировать задачу' : 'Новая задача'}
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            {isEdit
+              ? 'Карточка в колонке «Назначенные»'
+              : 'Появится в колонке «Назначенные»'}
+          </p>
 
           <label className="mt-4 block text-sm font-medium text-slate-700">
             Файл к описанию задачи
           </label>
+          {taskToEdit?.descriptionAttachment && !descriptionFile && (
+            <p className="mt-1 text-xs text-slate-600">
+              Сейчас: {taskToEdit.descriptionAttachment.name} — выберите другой файл, чтобы заменить
+            </p>
+          )}
           <input
             type="file"
             className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
@@ -131,15 +200,47 @@ export function CreateTaskModal({
             onChange={(e) => setDescription(e.target.value)}
           />
 
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="mt-3 space-y-3">
             <div>
-              <label className="text-sm font-medium text-slate-700">Дедлайн</label>
-              <input
-                type="date"
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
-                value={deadline}
-                onChange={(e) => setDeadline(e.target.value)}
-              />
+              <label className="text-sm font-medium text-slate-700">Срок исполнения</label>
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <div className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white py-1 pl-2 pr-1 shadow-inner">
+                  <input
+                    ref={dateInputRef}
+                    type="date"
+                    className="date-input-tight max-w-[9.5rem] border-0 bg-transparent py-1 text-sm text-slate-900 focus:outline-none focus:ring-0"
+                    value={deadline}
+                    onChange={(e) => setDeadline(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
+                    aria-label="Выбрать дату"
+                    title="Календарь"
+                    onClick={() => dateInputRef.current?.showPicker?.()}
+                  >
+                    <Calendar className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white py-1 pl-2 pr-1 shadow-inner">
+                  <input
+                    ref={timeInputRef}
+                    type="time"
+                    className="time-input-tight max-w-[6.5rem] border-0 bg-transparent py-1 text-sm text-slate-900 focus:outline-none focus:ring-0"
+                    value={dueTime}
+                    onChange={(e) => setDueTime(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-600 hover:bg-slate-100"
+                    aria-label="Выбрать время"
+                    title="Время"
+                    onClick={() => timeInputRef.current?.showPicker?.()}
+                  >
+                    <AlarmClock className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
             </div>
             <div>
               <label className="text-sm font-medium text-slate-700">Приоритет</label>
@@ -208,7 +309,7 @@ export function CreateTaskModal({
             onClick={submit}
             className="rounded-xl bg-teal-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-teal-700"
           >
-            Создать
+            {isEdit ? 'Сохранить' : 'Создать'}
           </button>
           </div>
         </div>

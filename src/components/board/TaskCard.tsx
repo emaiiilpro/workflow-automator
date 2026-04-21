@@ -1,12 +1,10 @@
 import { useState } from 'react'
 import { Draggable } from '@hello-pangea/dnd'
 import { Calendar, Check, Flag, GripVertical, Paperclip, Pencil, X } from 'lucide-react'
-import { format, parseISO } from 'date-fns'
-import { ru } from 'date-fns/locale'
 import toast from 'react-hot-toast'
 import type { Priority, Task, TaskAttachment, User } from '@/types'
 import { priorityBadgeClass, priorityLabel } from '@/utils/priority'
-import { isOverdue } from '@/utils/deadline'
+import { formatDeadlineDisplay, isOverdue } from '@/utils/deadline'
 import { AvatarStack } from '@/components/ui/AvatarStack'
 import { useAppDispatch } from '@/store/hooks'
 import {
@@ -26,6 +24,9 @@ type Props = {
   index: number
   assignees: User[]
   currentUserId: string
+  isAdmin?: boolean
+  /** Админ: клик по карточке в «Назначенные» — открыть форму редактирования */
+  onAdminEditAssignedTask?: (task: Task) => void
   /** При поиске/фильтрах отключаем DnD, чтобы индексы совпадали с хранилищем */
   isDragDisabled?: boolean
 }
@@ -35,6 +36,8 @@ export function TaskCard({
   index,
   assignees,
   currentUserId,
+  isAdmin = false,
+  onAdminEditAssignedTask,
   isDragDisabled,
 }: Props) {
   const dispatch = useAppDispatch()
@@ -46,7 +49,7 @@ export function TaskCard({
     url: string | null
     text: string | null
   } | null>(null)
-  const overdue = isOverdue(task.deadline)
+  const overdue = isOverdue(task.deadline, task.dueTime)
   const descriptionAttachment = task.descriptionAttachment
   const isAssignee = task.assigneeIds.includes(currentUserId)
   const currentReport = task.assigneeReports?.[currentUserId]
@@ -259,13 +262,24 @@ export function TaskCard({
               snapshot.isDragging ? 'rotate-1 shadow-lg ring-2 ring-teal-400/40' : ''
             }`}
             onClick={() => {
+              if (task.column === 'assigned' && isAdmin && onAdminEditAssignedTask) {
+                onAdminEditAssignedTask(task)
+                return
+              }
               if (task.column === 'in_progress') {
                 setExpanded((p) => !p)
               }
             }}
           >
           <div className="flex gap-2">
-            <div className="mt-0.5 cursor-grab text-slate-300 hover:text-slate-500">
+            <div
+              className="mt-0.5 cursor-grab text-slate-300 hover:text-slate-500"
+              onClick={(e) => {
+                if (task.column === 'assigned' && isAdmin && onAdminEditAssignedTask) {
+                  e.stopPropagation()
+                }
+              }}
+            >
               <GripVertical className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
@@ -302,15 +316,20 @@ export function TaskCard({
                 ) : (
                   <button
                     type="button"
-                    onClick={() => setEditing(true)}
-                    className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-xs font-medium ${
+                    onClick={(e) => {
+                      if (task.column === 'assigned' && isAdmin) e.stopPropagation()
+                      setEditing(true)
+                    }}
+                    className={`inline-flex max-w-full flex-nowrap items-center gap-0.5 whitespace-nowrap rounded-lg px-2 py-0.5 text-xs font-medium ${
                       overdue ? 'bg-red-50 text-red-700 ring-1 ring-red-200' : 'bg-slate-50 text-slate-700'
                     }`}
                   >
-                    <Calendar className="h-3 w-3" />
-                    {format(parseISO(task.deadline), 'd MMM yyyy', { locale: ru })}
-                    {overdue && <span className="text-red-600"> · просрочено</span>}
-                    <Pencil className="h-3 w-3 opacity-0 transition group-hover:opacity-100" />
+                    <Calendar className="h-3 w-3 shrink-0" />
+                    <span className="shrink-0">{formatDeadlineDisplay(task.deadline, task.dueTime)}</span>
+                    {overdue && (
+                      <span className="shrink-0 text-red-600">· просрочено</span>
+                    )}
+                    <Pencil className="h-3 w-3 shrink-0 opacity-0 transition group-hover:opacity-100" />
                   </button>
                 )}
               </div>
@@ -320,7 +339,10 @@ export function TaskCard({
                 <div className="flex flex-wrap justify-end gap-1">
                   <button
                     type="button"
-                    onClick={cyclePriority}
+                    onClick={(e) => {
+                      if (task.column === 'assigned' && isAdmin) e.stopPropagation()
+                      cyclePriority()
+                    }}
                     className="rounded-lg px-2 py-1 text-xs text-teal-700 hover:bg-teal-50"
                   >
                     Приоритет
@@ -471,7 +493,7 @@ export function TaskCard({
                 </div>
               )}
 
-              <p className="mt-2 text-[10px] text-slate-400">Клик по дате — изменить дедлайн</p>
+              <p className="mt-2 text-[10px] text-slate-400">Клик по дате — изменить срок исполнения</p>
             </div>
           </div>
           </div>

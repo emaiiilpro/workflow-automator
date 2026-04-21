@@ -64,6 +64,8 @@ export interface Task {
   description: string
   /** ISO date (yyyy-MM-dd) */
   deadline: string
+  /** Время окончания срока в тот же день, формат HH:mm (24 ч), опционально */
+  dueTime?: string
   priority: Priority
   assigneeIds: string[]
   /** Порядок внутри колонки для DnD */

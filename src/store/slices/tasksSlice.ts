@@ -17,7 +17,11 @@ const tasksSlice = createSlice({
     ) {
       const t = state.find((x) => x.id === action.payload.taskId)
       if (!t) return
-      Object.assign(t, action.payload.patch)
+      const { patch } = action.payload
+      Object.assign(t, patch)
+      if (Object.prototype.hasOwnProperty.call(patch, 'dueTime') && !patch.dueTime) {
+        delete t.dueTime
+      }
     },
     setTaskColumn(
       state,

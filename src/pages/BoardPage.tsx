@@ -40,6 +40,8 @@ export function BoardPage() {
   const [filterUserId, setFilterUserId] = useState<string>('')
   const [filterPriority, setFilterPriority] = useState<Priority | ''>('')
   const [createOpen, setCreateOpen] = useState(false)
+  /** Админ: редактирование задачи из «Назначенные» (та же форма, что и «Новая задача») */
+  const [editTask, setEditTask] = useState<Task | null>(null)
   const [isCreateSpaceOpen, setIsCreateSpaceOpen] = useState(false)
   const [newSpaceName, setNewSpaceName] = useState('')
   const [editingSpaceId, setEditingSpaceId] = useState<string | null>(null)
@@ -560,7 +562,13 @@ export function BoardPage() {
                     currentUserId={user.id}
                     isAdmin={isAdmin}
                     canCreateHere={col.id === 'assigned'}
-                    onCreateClick={() => setCreateOpen(true)}
+                    onCreateClick={() => {
+                      setEditTask(null)
+                      setCreateOpen(true)
+                    }}
+                    onAdminEditAssignedTask={
+                      isAdmin ? (t) => setEditTask(t) : undefined
+                    }
                     canQuickCreate={col.isCustom}
                     onQuickCreate={(title) => createQuickTask(col.id, title)}
                     canDelete={col.isCustom}
@@ -631,11 +639,16 @@ export function BoardPage() {
         </div>
       </main>
 
-      {createOpen && isAdmin && (
+      {isAdmin && (createOpen || editTask) && (
         <CreateTaskModal
+          key={editTask ? editTask.id : 'new-task'}
           boardId={board.id}
           boardMembers={boardMembers}
-          onClose={() => setCreateOpen(false)}
+          taskToEdit={editTask}
+          onClose={() => {
+            setCreateOpen(false)
+            setEditTask(null)
+          }}
         />
       )}
 

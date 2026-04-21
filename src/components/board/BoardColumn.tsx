@@ -18,6 +18,8 @@ type Props = {
   canDelete?: boolean
   onDelete?: () => void
   isDragDisabled?: boolean
+  /** Админ: открыть редактирование задачи из колонки «Назначенные» */
+  onAdminEditAssignedTask?: (task: Task) => void
 }
 
 export function BoardColumn({
@@ -34,6 +36,7 @@ export function BoardColumn({
   canDelete,
   onDelete,
   isDragDisabled,
+  onAdminEditAssignedTask,
 }: Props) {
   const [quickCreateOpen, setQuickCreateOpen] = useState(false)
   const [quickTaskTitle, setQuickTaskTitle] = useState('')
@@ -83,6 +86,10 @@ export function BoardColumn({
                   index={index}
                   assignees={assigneesOf(task.assigneeIds)}
                   currentUserId={currentUserId}
+                  isAdmin={isAdmin}
+                  onAdminEditAssignedTask={
+                    columnId === 'assigned' ? onAdminEditAssignedTask : undefined
+                  }
                   isDragDisabled={isDragDisabled}
                 />
               ))}

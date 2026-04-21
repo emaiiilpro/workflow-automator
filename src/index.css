@@ -10,3 +10,9 @@ body {
 #root {
   min-height: 100vh;
 }
+
+/* Нативный индикатор скрыт — рядом отдельные кнопки с иконками */
+.date-input-tight::-webkit-calendar-picker-indicator,
+.time-input-tight::-webkit-calendar-picker-indicator {
+  display: none;
+}
