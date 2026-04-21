@@ -10,20 +10,12 @@ import { priorityLabel } from '@/utils/priority'
 type Props = {
   boardId: string
   boardMembers: User[]
-  spaceMembers: User[]
-  onToggleBoardMember: (userId: string, checked: boolean) => void
-  canApplyToAllBoards: boolean
-  onApplyToAllBoards: () => void
   onClose: () => void
 }
 
 export function CreateTaskModal({
   boardId,
   boardMembers,
-  spaceMembers,
-  onToggleBoardMember,
-  canApplyToAllBoards,
-  onApplyToAllBoards,
   onClose,
 }: Props) {
   const dispatch = useAppDispatch()
@@ -31,18 +23,24 @@ export function CreateTaskModal({
   const [deadline, setDeadline] = useState(() => new Date().toISOString().slice(0, 10))
   const [priority, setPriority] = useState<Priority>('medium')
   const [descriptionFile, setDescriptionFile] = useState<File | null>(null)
-  const [includeReportField, setIncludeReportField] = useState(true)
-  const [includeFamiliarizationField, setIncludeFamiliarizationField] = useState(true)
   const [assigneeIds, setAssigneeIds] = useState<string[]>(() =>
     boardMembers[0] ? [boardMembers[0].id] : [],
   )
-
-  const boardMemberIdSet = new Set(boardMembers.map((member) => member.id))
 
   const toggleAssignee = (id: string) => {
     setAssigneeIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     )
+  }
+
+  const allMemberIds = boardMembers.map((m) => m.id)
+  const allAssigneesSelected =
+    boardMembers.length > 0 && allMemberIds.every((id) => assigneeIds.includes(id))
+
+  const toggleAssignAll = () => {
+    if (boardMembers.length === 0) return
+    if (allAssigneesSelected) setAssigneeIds([])
+    else setAssigneeIds([...allMemberIds])
   }
 
   const submit = () => {
@@ -65,8 +63,8 @@ export function CreateTaskModal({
       assigneeIds,
       order: Date.now(),
       checklistConfig: {
-        report: includeReportField,
-        familiarization: includeFamiliarizationField,
+        report: true,
+        familiarization: true,
       },
       checklistState: {
         report: false,
@@ -117,14 +115,7 @@ export function CreateTaskModal({
           <h2 className="text-lg font-semibold text-slate-900">Новая задача</h2>
           <p className="mt-1 text-sm text-slate-500">Появится в колонке «Назначенные»</p>
 
-          <label className="mt-4 block text-sm font-medium text-slate-700">Описание</label>
-          <textarea
-            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-            rows={3}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-          <label className="mt-3 block text-sm font-medium text-slate-700">
+          <label className="mt-4 block text-sm font-medium text-slate-700">
             Файл к описанию задачи
           </label>
           <input
@@ -132,26 +123,13 @@ export function CreateTaskModal({
             className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
             onChange={(e) => setDescriptionFile(e.target.files?.[0] ?? null)}
           />
-
-          <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
-            <p className="text-sm font-medium text-slate-700">Чеклист карточки</p>
-            <label className="mt-2 flex items-center gap-2 text-sm text-slate-700">
-              <input
-                type="checkbox"
-                checked={includeReportField}
-                onChange={(e) => setIncludeReportField(e.target.checked)}
-              />
-              Поле «Рапорт»
-            </label>
-            <label className="mt-1 flex items-center gap-2 text-sm text-slate-700">
-              <input
-                type="checkbox"
-                checked={includeFamiliarizationField}
-                onChange={(e) => setIncludeFamiliarizationField(e.target.checked)}
-              />
-              Поле «Лист ознакомления»
-            </label>
-          </div>
+          <label className="mt-3 block text-sm font-medium text-slate-700">Описание</label>
+          <textarea
+            className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm shadow-inner focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+            rows={3}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
 
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <div>
@@ -181,6 +159,17 @@ export function CreateTaskModal({
 
           <label className="mt-4 block text-sm font-medium text-slate-700">Назначить</label>
           <div className="mt-2 max-h-40 space-y-1 overflow-y-auto rounded-xl border border-slate-200 p-2">
+            {boardMembers.length > 0 && (
+              <label className="flex cursor-pointer items-center gap-2 rounded-lg bg-slate-50 px-2 py-1.5 font-medium hover:bg-slate-100">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 shrink-0"
+                  checked={allAssigneesSelected}
+                  onChange={toggleAssignAll}
+                />
+                <span className="text-sm text-slate-800">Все</span>
+              </label>
+            )}
             {boardMembers.map((m) => (
               <label
                 key={m.id}
@@ -188,6 +177,7 @@ export function CreateTaskModal({
               >
                 <input
                   type="checkbox"
+                  className="h-4 w-4 shrink-0"
                   checked={assigneeIds.includes(m.id)}
                   onChange={() => toggleAssignee(m.id)}
                 />
@@ -198,45 +188,9 @@ export function CreateTaskModal({
             ))}
             {boardMembers.length === 0 && (
               <p className="px-2 py-1 text-sm text-slate-500">
-                Нет участников доски. Добавьте их в блоке ниже.
+                Нет участников доски. Состав настраивается в настройках пространства.
               </p>
             )}
-          </div>
-
-          <label className="mt-4 block text-sm font-medium text-slate-700">
-            Участники, прикреплённые к доске
-          </label>
-          {canApplyToAllBoards && (
-            <button
-              type="button"
-              onClick={onApplyToAllBoards}
-              className="mt-2 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-            >
-              Применить ко всем доскам пространства
-            </button>
-          )}
-          <div className="mt-2 max-h-40 space-y-1 overflow-y-auto rounded-xl border border-slate-200 p-2">
-            {spaceMembers.map((member) => (
-              <label
-                key={member.id}
-                className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-50"
-              >
-                <input
-                  type="checkbox"
-                  checked={boardMemberIdSet.has(member.id)}
-                  onChange={(e) => {
-                    const checked = e.target.checked
-                    onToggleBoardMember(member.id, checked)
-                    if (!checked) {
-                      setAssigneeIds((prev) => prev.filter((id) => id !== member.id))
-                    }
-                  }}
-                />
-                <span className="text-sm">
-                  {member.name} <span className="text-slate-400">({member.email})</span>
-                </span>
-              </label>
-            ))}
           </div>
         </div>
 

@@ -19,8 +19,6 @@ import {
 import {
   addBoard,
   addCustomColumn,
-  setBoardMembers,
-  setSpaceBoardsMembers,
   removeCustomColumn,
   removeBoard,
 } from '@/store/slices/boardsSlice'
@@ -54,15 +52,6 @@ export function BoardPage() {
   const space = spaces.find((x) => x.id === spaceId)
   const board = boards.find((x) => x.id === boardId && x.spaceId === spaceId)
   const visibleSpaces = spaces.filter((s) => isAdmin || (user ? s.memberIds.includes(user.id) : false))
-  const boardsInCurrentSpace = boards.filter((item) => item.spaceId === spaceId)
-
-  const spaceMembers: User[] = useMemo(() => {
-    if (!space) return []
-    return space.memberIds
-      .map((id) => users.find((u) => u.id === id))
-      .filter((u): u is User => !!u)
-  }, [space, users])
-
   const boardMemberIds = useMemo(
     () => board?.memberIds ?? space?.memberIds ?? [],
     [board?.memberIds, space?.memberIds],
@@ -338,20 +327,6 @@ export function BoardPage() {
     toast.success('Карточка добавлена')
   }
 
-  const toggleBoardMember = (userId: string, checked: boolean) => {
-    if (!boardId || !isAdmin) return
-    const nextIds = checked
-      ? Array.from(new Set([...boardMemberIds, userId]))
-      : boardMemberIds.filter((id) => id !== userId)
-    dispatch(setBoardMembers({ boardId, memberIds: nextIds }))
-  }
-
-  const applyMembersToAllSpaceBoards = () => {
-    if (!spaceId || !isAdmin) return
-    dispatch(setSpaceBoardsMembers({ spaceId, memberIds: boardMemberIds }))
-    toast.success('Участники применены ко всем доскам пространства')
-  }
-
   const deleteCustomColumn = (columnId: TaskColumn, title: string) => {
     if (!boardId || !isAdmin || !columnId.startsWith('custom_')) return
     if (!confirm(`Удалить колонку «${title}» и все карточки в ней?`)) return
@@ -383,8 +358,8 @@ export function BoardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(rgba(248,250,252,0.72),rgba(248,250,252,0.72)),url('/workflow-bg.png')] bg-cover bg-center bg-fixed">
-      <header className="border-b border-white/60 bg-white/70">
+    <div className="flex min-h-dvh flex-col bg-[linear-gradient(rgba(248,250,252,0.72),rgba(248,250,252,0.72)),url('/workflow-bg.png')] bg-cover bg-center bg-fixed">
+      <header className="shrink-0 border-b border-white/60 bg-white/70">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-end gap-3 px-4 py-3">
           {filtersActive && (
             <p className="w-full text-xs text-amber-800">
@@ -429,10 +404,13 @@ export function BoardPage() {
         </div>
       </header>
 
-      <main className="w-full px-4 py-6">
-        <div ref={boardScrollRef} className="overflow-x-auto pb-2">
-          <div className="flex min-w-max items-start gap-4">
-            <aside className="w-[260px] shrink-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-card lg:sticky lg:top-4 lg:h-fit">
+      <main className="flex min-h-0 w-full flex-1 flex-col px-4 py-6">
+        <div
+          ref={boardScrollRef}
+          className="flex min-h-0 flex-1 flex-col overflow-x-auto overflow-y-hidden pb-2"
+        >
+          <div className="flex min-h-0 flex-1 min-w-max items-stretch gap-4">
+            <aside className="w-[260px] shrink-0 self-start overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-card max-h-[calc(100dvh-9rem)]">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">
                 Пространства
@@ -569,9 +547,9 @@ export function BoardPage() {
             </ul>
             </aside>
 
-            <div className="relative min-w-max">
+            <div className="relative h-full min-h-0 min-w-max">
               <DragDropContext onDragEnd={onDragEnd}>
-                <div className="flex min-w-max gap-4 pb-4">
+                <div className="flex h-full min-h-0 min-w-max gap-4 pb-4">
                 {boardColumns.map((col) => (
                   <BoardColumn
                     key={col.id}
@@ -593,7 +571,7 @@ export function BoardPage() {
                 {isAdmin && (
                   <div
                     ref={addColumnCardRef}
-                    className="w-[240px] shrink-0 self-start rounded-2xl bg-slate-100/70 p-3 shadow-inner"
+                    className="w-[240px] shrink-0 self-stretch rounded-2xl bg-slate-100/70 p-3 shadow-inner"
                   >
                     {isAddColumnOpen ? (
                       <div className="space-y-2 rounded-xl bg-white p-2 shadow-sm ring-1 ring-slate-200">
@@ -648,17 +626,6 @@ export function BoardPage() {
                 )}
                 </div>
               </DragDropContext>
-              {isAdmin && !isAddColumnOpen && (
-                <button
-                  type="button"
-                  onClick={openAddColumnPanel}
-                  className="absolute bottom-3 right-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-white shadow-lg hover:bg-blue-700"
-                  aria-label="Добавить список"
-                  title="Добавить список"
-                >
-                  <Plus className="h-5 w-5" />
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -668,10 +635,6 @@ export function BoardPage() {
         <CreateTaskModal
           boardId={board.id}
           boardMembers={boardMembers}
-          spaceMembers={spaceMembers}
-          onToggleBoardMember={toggleBoardMember}
-          canApplyToAllBoards={boardsInCurrentSpace.length > 1}
-          onApplyToAllBoards={applyMembersToAllSpaceBoards}
           onClose={() => setCreateOpen(false)}
         />
       )}

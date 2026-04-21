@@ -46,8 +46,8 @@ export function BoardColumn({
   }
 
   return (
-    <div className="flex w-[min(100%,320px)] shrink-0 flex-col rounded-2xl bg-slate-100/80 p-3 shadow-inner">
-      <div className="mb-3 flex items-center justify-between gap-2">
+    <div className="flex h-full min-h-0 w-[min(100%,320px)] shrink-0 flex-col rounded-2xl bg-slate-100/80 p-3 shadow-inner">
+      <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-slate-800">{title}</h3>
         <div className="flex items-center gap-1">
           <span className="rounded-full bg-white px-2 py-0.5 text-xs font-medium text-slate-600 shadow-sm">
@@ -66,35 +66,37 @@ export function BoardColumn({
         </div>
       </div>
 
-      <Droppable droppableId={columnId}>
-        {(provided, snapshot) => (
-          <div
-            ref={provided.innerRef}
-            {...provided.droppableProps}
-            className={`min-h-[200px] flex-1 space-y-2 rounded-xl p-1 transition ${
-              snapshot.isDraggingOver ? 'bg-teal-50/80 ring-2 ring-teal-200' : ''
-            }`}
-          >
-            {tasks.map((task, index) => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                index={index}
-                assignees={assigneesOf(task.assigneeIds)}
-                currentUserId={currentUserId}
-                isDragDisabled={isDragDisabled}
-              />
-            ))}
-            {provided.placeholder}
-          </div>
-        )}
-      </Droppable>
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <Droppable droppableId={columnId}>
+          {(provided, snapshot) => (
+            <div
+              ref={provided.innerRef}
+              {...provided.droppableProps}
+              className={`min-h-[200px] space-y-2 rounded-xl p-1 transition ${
+                snapshot.isDraggingOver ? 'bg-teal-50/80 ring-2 ring-teal-200' : ''
+              }`}
+            >
+              {tasks.map((task, index) => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  index={index}
+                  assignees={assigneesOf(task.assigneeIds)}
+                  currentUserId={currentUserId}
+                  isDragDisabled={isDragDisabled}
+                />
+              ))}
+              {provided.placeholder}
+            </div>
+          )}
+        </Droppable>
+      </div>
 
       {canCreateHere && isAdmin && (
         <button
           type="button"
           onClick={onCreateClick}
-          className="mt-2 flex items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 py-2 text-sm font-medium text-teal-800 hover:border-teal-400 hover:bg-white"
+          className="mt-2 flex shrink-0 items-center justify-center gap-2 rounded-xl border border-dashed border-slate-300 py-2 text-sm font-medium text-teal-800 hover:border-teal-400 hover:bg-white"
         >
           <Plus className="h-4 w-4" />
           Новая задача
@@ -102,7 +104,7 @@ export function BoardColumn({
       )}
 
       {canQuickCreate && isAdmin && (
-        <div className="mt-2">
+        <div className="mt-2 shrink-0">
           {quickCreateOpen ? (
             <div className="space-y-2 rounded-xl bg-white p-2 shadow-sm ring-1 ring-slate-200">
               <input
