@@ -22,6 +22,12 @@ const tasksSlice = createSlice({
       if (Object.prototype.hasOwnProperty.call(patch, 'dueTime') && !patch.dueTime) {
         delete t.dueTime
       }
+      if (
+        Object.prototype.hasOwnProperty.call(patch, 'descriptionAttachment') &&
+        patch.descriptionAttachment === undefined
+      ) {
+        delete t.descriptionAttachment
+      }
     },
     setTaskColumn(
       state,

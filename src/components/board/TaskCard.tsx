@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Draggable } from '@hello-pangea/dnd'
-import { Calendar, Check, Flag, GripVertical, Paperclip, Pencil, X } from 'lucide-react'
+import { Calendar, Check, Flag, GripVertical, Paperclip, Pencil, Trash2, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { Priority, Task, TaskAttachment, User } from '@/types'
 import { priorityBadgeClass, priorityLabel } from '@/utils/priority'
@@ -9,6 +9,7 @@ import { AvatarStack } from '@/components/ui/AvatarStack'
 import { useAppDispatch } from '@/store/hooks'
 import {
   appendReportAttachment,
+  removeTask,
   setAssigneeCompleted,
   setAssigneeReportComment,
   setTaskColumn,
@@ -16,8 +17,6 @@ import {
 } from '@/store/slices/tasksSlice'
 import { KANBAN_COLUMNS } from '@/constants/kanban'
 import { v4 as uuid } from 'uuid'
-
-const DOWNLOADED_ATTACHMENTS_KEY = 'workflow-downloaded-attachments-v1'
 
 type Props = {
   task: Task
@@ -75,6 +74,27 @@ export function TaskCard({
     toast.success('Задача принята в работу')
   }
 
+  const handleDeleteAssigned = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!isAdmin || task.column !== 'assigned') return
+    if (!confirm('Удалить эту задачу?')) return
+    dispatch(removeTask(task.id))
+    toast.success('Задача удалена')
+  }
+
+  const handleRemoveDescriptionAttachment = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!isAdmin || !task.descriptionAttachment) return
+    if (!confirm('Убрать прикреплённый файл из задачи?')) return
+    dispatch(
+      updateTask({
+        taskId: task.id,
+        patch: { descriptionAttachment: undefined },
+      }),
+    )
+    toast.success('Файл откреплён')
+  }
+
   const saveDeadline = (v: string) => {
     dispatch(updateTask({ taskId: task.id, patch: { deadline: v } }))
     setEditing(false)
@@ -108,23 +128,6 @@ export function TaskCard({
       toast.success('Файл отчета прикреплен')
     }
     reader.readAsDataURL(file)
-  }
-
-  const readDownloadedAttachmentIds = (): string[] => {
-    try {
-      const raw = localStorage.getItem(DOWNLOADED_ATTACHMENTS_KEY)
-      if (!raw) return []
-      const parsed = JSON.parse(raw)
-      return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : []
-    } catch {
-      return []
-    }
-  }
-
-  const markAttachmentAsDownloaded = (attachmentId: string) => {
-    const current = new Set(readDownloadedAttachmentIds())
-    current.add(attachmentId)
-    localStorage.setItem(DOWNLOADED_ATTACHMENTS_KEY, JSON.stringify(Array.from(current)))
   }
 
   const closePreview = () => {
@@ -168,7 +171,6 @@ export function TaskCard({
       return
     }
 
-    const url = URL.createObjectURL(blob)
     const mime = (blob.type || file.mime || '').toLowerCase()
     const name = file.name.toLowerCase()
     const isTextPreview = mime.startsWith('text/') || /\.(txt|md|json|csv|log)$/.test(name)
@@ -187,6 +189,7 @@ export function TaskCard({
     }
 
     if (isImagePreview || isPdfPreview) {
+      const url = URL.createObjectURL(blob)
       setPreview({
         name: file.name,
         mime,
@@ -195,10 +198,11 @@ export function TaskCard({
       })
       return
     }
-    const downloadedIds = new Set(readDownloadedAttachmentIds())
-    if (downloadedIds.has(file.id)) {
-      URL.revokeObjectURL(url)
-      toast('Файл уже загружен ранее. Откройте его из папки "Загрузки".')
+    const url = URL.createObjectURL(blob)
+    const newTab = window.open(url, '_blank', 'noopener,noreferrer')
+    if (newTab) {
+      toast.success('Файл открыт в новой вкладке или во внешней программе')
+      setTimeout(() => URL.revokeObjectURL(url), 180_000)
       return
     }
 
@@ -209,9 +213,8 @@ export function TaskCard({
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-    markAttachmentAsDownloaded(file.id)
-    toast.success('Файл загружен в папку "Загрузки"')
-    setTimeout(() => URL.revokeObjectURL(url), 5_000)
+    toast('Вкладка заблокирована — файл отправлен в загрузки')
+    setTimeout(() => URL.revokeObjectURL(url), 30_000)
   }
 
   const toggleAssigneeCompleted = (assigneeId: string, checked: boolean) => {
@@ -258,7 +261,7 @@ export function TaskCard({
             ref={provided.innerRef}
             {...provided.draggableProps}
             {...provided.dragHandleProps}
-            className={`group rounded-xl border border-slate-200/80 bg-white p-3 shadow-card transition hover:shadow-card-hover ${
+            className={`group relative rounded-xl border border-slate-200/80 bg-white p-3 shadow-card transition hover:shadow-card-hover ${
               snapshot.isDragging ? 'rotate-1 shadow-lg ring-2 ring-teal-400/40' : ''
             }`}
             onClick={() => {
@@ -271,6 +274,17 @@ export function TaskCard({
               }
             }}
           >
+            {task.column === 'assigned' && isAdmin && (
+              <button
+                type="button"
+                onClick={handleDeleteAssigned}
+                className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 transition hover:bg-red-50 hover:text-red-700"
+                aria-label="Удалить задачу"
+                title="Удалить задачу"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
           <div className="flex gap-2">
             <div
               className="mt-0.5 cursor-grab text-slate-300 hover:text-slate-500"
@@ -282,19 +296,34 @@ export function TaskCard({
             >
               <GripVertical className="h-4 w-4" />
             </div>
-            <div className="min-w-0 flex-1">
+            <div
+              className={`min-w-0 flex-1 ${task.column === 'assigned' && isAdmin ? 'pr-7 sm:pr-8' : ''}`}
+            >
               {descriptionAttachment && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    openAttachment(descriptionAttachment)
-                  }}
-                  className="mb-2 inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-200"
-                >
-                  <Paperclip className="h-3 w-3" />
-                  {descriptionAttachment.name}
-                </button>
+                <div className="mb-2 flex min-w-0 max-w-full items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-2 py-1.5 shadow-inner">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      openAttachment(descriptionAttachment)
+                    }}
+                    className="flex min-w-0 flex-1 items-center gap-1.5 text-left text-[11px] text-slate-700 transition hover:text-slate-900"
+                  >
+                    <Paperclip className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+                    <span className="truncate">{descriptionAttachment.name}</span>
+                  </button>
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={handleRemoveDescriptionAttachment}
+                      className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-rose-100 text-rose-900 transition hover:bg-rose-200"
+                      aria-label="Открепить файл"
+                      title="Открепить файл"
+                    >
+                      <X className="h-3.5 w-3.5" strokeWidth={2.25} />
+                    </button>
+                  )}
+                </div>
               )}
               <p className="text-sm font-medium leading-snug text-slate-900">{task.description}</p>
 
@@ -544,3 +573,5 @@ export function TaskCard({
     </>
   )
 }
+
+
